@@ -5,7 +5,7 @@ Este proyecto reorganiza la app original en una arquitectura MVC para que sea m�
 ## Estructura
 
 ```text
-ischuu_mvc/
+ischuu_app_/
 ├── app/
 │   ├── controllers/
 │   │   └── app_controller.py
