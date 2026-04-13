@@ -32,7 +32,9 @@ ischuu_app_/
 
 ```bash
 pip install -r requirements.txt
+pip install "flet[all]"
 python main.py
+
 ```
 
 ## Qué quedó separado
