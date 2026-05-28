@@ -10,6 +10,14 @@ class ApiClient:
         self.base_url = base_url.rstrip("/")
         self.token: str | None = None
 
+        self.timeout = httpx.Timeout(
+            timeout=45.0,
+            connect=20.0,
+            read=45.0,
+            write=20.0,
+            pool=20.0,
+        )
+
     def set_token(self, token: str | None) -> None:
         self.token = token
 
@@ -175,7 +183,7 @@ class ApiClient:
     # =========================
 
     async def admin_get_summary(self) -> dict:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/admin/summary",
                 headers=self.headers(),
@@ -188,7 +196,7 @@ class ApiClient:
     # =========================
 
     async def admin_get_users(self) -> list[dict]:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/admin/users",
                 headers=self.headers(),
@@ -221,7 +229,7 @@ class ApiClient:
     # =========================
 
     async def admin_get_products(self) -> list[dict]:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/admin/products",
                 headers=self.headers(),
@@ -320,7 +328,7 @@ class ApiClient:
     # =========================
 
     async def admin_get_orders(self) -> list[dict]:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/admin/orders",
                 headers=self.headers(),
@@ -361,7 +369,7 @@ class ApiClient:
     # =========================
 
     async def admin_get_settings(self) -> dict:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/admin/settings",
                 headers=self.headers(),
