@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     mongodb_url: str
     mongodb_database: str = "ischuu"
 
-    api_base_url: str = "http://127.0.0.1:8000"
+    api_base_url: str = "https://ischuu-app.onrender.com"
 
     tbk_env: str = "integration"
     tbk_commerce_code: str = ""
