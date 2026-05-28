@@ -32,6 +32,10 @@ class AppController:
         self.api = ApiClient(api_base_url)
         self.state = AppState()
 
+        # Dirección de despacho
+        self.shipping_address_saved = False
+        self.shipping_address_editing = True
+
         self.current_section = 0
         self.auth_mode = "login"
         self.cart_quote: dict[str, Any] = {}
@@ -98,6 +102,42 @@ class AppController:
         self.product_list = ft.Column(spacing=12)
         self.cart_quote_box = ft.Column(spacing=6)
 
+        self.shipping_recipient = ft.TextField(
+            label="Nombre destinatario",
+            prefix_icon=ft.Icons.PERSON_OUTLINE,
+        )
+
+        self.shipping_phone = ft.TextField(
+            label="Teléfono",
+            prefix_icon=ft.Icons.PHONE_OUTLINED,
+        )
+
+        self.shipping_region = ft.TextField(
+            label="Región",
+            value="Región Metropolitana",
+            prefix_icon=ft.Icons.MAP_OUTLINED,
+        )
+
+        self.shipping_comuna = ft.TextField(
+            label="Comuna",
+            prefix_icon=ft.Icons.LOCATION_CITY_OUTLINED,
+        )
+
+        self.shipping_street = ft.TextField(
+            label="Calle",
+            prefix_icon=ft.Icons.HOME_OUTLINED,
+        )
+
+        self.shipping_number = ft.TextField(
+            label="Número",
+            prefix_icon=ft.Icons.TAG_OUTLINED,
+        )
+
+        self.shipping_details = ft.TextField(
+            label="Referencia / Depto / Casa / Indicaciones",
+            prefix_icon=ft.Icons.NOTES_OUTLINED,
+        )
+
         self.search_field = ft.TextField(
             hint_text="Buscar producto, serie o categoría...",
             prefix_icon=ft.Icons.SEARCH,
@@ -135,6 +175,62 @@ class AppController:
             asyncio.get_event_loop().create_task(coro)
         except RuntimeError:
             asyncio.run(coro)
+
+    def apply_shipping_address_to_fields(self, data: dict | None) -> None:
+        data = data or {}
+
+        self.shipping_recipient.value = data.get("recipient", "")
+        self.shipping_phone.value = data.get("phone", "")
+        self.shipping_region.value = data.get("region", "Región Metropolitana")
+        self.shipping_comuna.value = data.get("comuna", "")
+        self.shipping_street.value = data.get("street", "")
+        self.shipping_number.value = data.get("number", "")
+        self.shipping_details.value = data.get("details", "")
+
+        self.shipping_address_saved = self.shipping_address_is_complete()
+        self.shipping_address_editing = not self.shipping_address_saved
+
+    def shipping_address_payload(self) -> dict:
+        return {
+            "recipient": self.shipping_recipient.value or "",
+            "phone": self.shipping_phone.value or "",
+            "region": self.shipping_region.value or "",
+            "comuna": self.shipping_comuna.value or "",
+            "street": self.shipping_street.value or "",
+            "number": self.shipping_number.value or "",
+            "details": self.shipping_details.value or "",
+        }
+
+    def shipping_address_is_complete(self) -> bool:
+        data = self.shipping_address_payload()
+
+        required = [
+            "recipient",
+            "phone",
+            "region",
+            "comuna",
+            "street",
+            "number",
+        ]
+
+        return all(str(data.get(field, "")).strip() for field in required)
+
+    def shipping_address_text(self) -> str:
+        data = self.shipping_address_payload()
+
+        address = (
+            f"{data.get('street', '').strip()} "
+            f"{data.get('number', '').strip()}, "
+            f"{data.get('comuna', '').strip()}, "
+            f"{data.get('region', '').strip()}"
+        )
+
+        details = data.get("details", "").strip()
+
+        if details:
+            address = f"{address}. Ref: {details}"
+
+        return address
 
     def shipping_address_payload(self) -> dict:
         return {
@@ -302,7 +398,9 @@ class AppController:
                 self.shipping_address_payload()
             )
 
-            self.state.current_user = self.user_from_dict(updated_user)
+            self.apply_shipping_address_to_fields(
+                getattr(self.state.current_user, "shipping_address", {}) or {}
+            )
 
             self.shipping_address_saved = True
             self.shipping_address_editing = False
