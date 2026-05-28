@@ -43,6 +43,7 @@ class AppController:
         )
 
     def _build_shared_controls(self) -> None:
+        print("hola")
         self.search_field = ft.TextField(
             hint_text="Buscar blind box, anime o serie...",
             prefix_icon=ft.Icons.SEARCH,
