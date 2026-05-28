@@ -1,17 +1,52 @@
-flet[all]
-fastapi
-uvicorn
-motor
-pymongo
-httpx
-python-dotenv
-python-multipart
-PyJWT
-pwdlib[argon2]
-pydantic
-pydantic-settings
-transbank-sdk
-dnspython
-asyncio
-openpyxl
-python-multipart
+# =========================
+# Backend API
+# =========================
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# =========================
+# Configuración / variables de entorno
+# =========================
+python-dotenv==1.0.1
+pydantic-settings==2.7.1
+
+# =========================
+# Base de datos MongoDB Atlas
+# =========================
+motor==3.6.0
+pymongo==4.9.2
+dnspython==2.7.0
+certifi==2024.12.14
+
+# =========================
+# Seguridad / autenticación JWT
+# =========================
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# =========================
+# Cliente HTTP para frontend/API
+# =========================
+httpx==0.28.1
+
+# =========================
+# Frontend Flet
+# =========================
+flet==0.25.2
+
+# =========================
+# Webpay / Transbank
+# =========================
+transbank-sdk==6.0.0
+
+# =========================
+# Excel / exportación de pedidos
+# =========================
+openpyxl==3.1.5
+
+# =========================
+# Empaquetado escritorio Windows
+# =========================
+pyinstaller==6.11.1
