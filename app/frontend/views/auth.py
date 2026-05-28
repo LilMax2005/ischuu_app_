@@ -76,14 +76,14 @@ def _build_auth_header() -> ft.Control:
 def build_login_view(controller: "AppController") -> ft.Control:
     email = ft.TextField(
         label="Correo",
-        value="admin@ischuu.cl",
+        value="",
         prefix_icon=ft.Icons.EMAIL_OUTLINED,
         **input_style(),
     )
 
     password = ft.TextField(
         label="Contraseña",
-        value="Admin1234",
+        value="",
         password=True,
         can_reveal_password=True,
         prefix_icon=ft.Icons.LOCK_OUTLINE,
