@@ -6,8 +6,19 @@ from transbank.common.integration_type import IntegrationType
 from transbank.common.options import WebpayOptions
 from transbank.webpay.webpay_plus.transaction import Transaction
 
+from app.backend.core.config import settings
 
-def tbk_opts() -> WebpayOptions:
+
+def tbk_options() -> WebpayOptions:
+    env = str(getattr(settings, "tbk_env", "integration")).lower().strip()
+
+    if env == "production":
+        return WebpayOptions(
+            commerce_code=settings.tbk_commerce_code,
+            api_key=settings.tbk_api_key,
+            integration_type=IntegrationType.LIVE,
+        )
+
     return WebpayOptions(
         commerce_code=IntegrationCommerceCodes.WEBPAY_PLUS,
         api_key=IntegrationApiKeys.WEBPAY,
@@ -21,18 +32,22 @@ def create_webpay_transaction(
     amount: int,
     return_url: str,
 ) -> dict:
-    response = Transaction(tbk_opts()).create(
+    response = Transaction(tbk_options()).create(
         buy_order,
         session_id,
         amount,
         return_url,
     )
+
+    print("WEBPAY CREATE RESPONSE:", response)
+
     return {
         "token": response["token"],
         "url": response["url"],
-        "redirect_url": f"{response['url']}?token_ws={response['token']}",
     }
 
 
 def commit_transaction(token: str) -> dict:
-    return Transaction(tbk_opts()).commit(token)
+    response = Transaction(tbk_options()).commit(token)
+    print("WEBPAY COMMIT RESPONSE:", response)
+    return response

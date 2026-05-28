@@ -1,15 +1,23 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.backend.core.security import get_password_hash
 from app.backend.db import db, ping_mongodb
 from app.backend.routers import admin, auth, orders, payments, products
 from app.backend.services.catalog import CATALOG
 
+try:
+    from app.backend.routers import password
+except ImportError:
+    password = None
 
-app = FastAPI(title="Ischuu API", version="1.1.0")
+
+app = FastAPI(title="Ischuu API", version="1.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,16 +27,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+static_dir = Path("app/backend/static")
+static_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
 app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(orders.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
 
+if password is not None:
+    app.include_router(password.router)
+
 
 @app.on_event("startup")
 async def startup() -> None:
-    if await db.users.count_documents({}) == 0:
+    admin_user = await db.users.find_one({"email": "admin@ischuu.cl"})
+
+    if admin_user is None:
         await db.users.insert_one(
             {
                 "name": "Administrador Ischuu",
@@ -36,23 +53,26 @@ async def startup() -> None:
                 "password_hash": get_password_hash("Admin1234"),
                 "points": 100,
                 "preferences": {},
+                "favorite_categories": [],
+                "notifications_enabled": True,
                 "is_admin": True,
                 "is_active": True,
             }
         )
-
-    await db.users.update_one(
-        {"email": "admin@ischuu.cl"},
-        {
-            "$set": {
-                "is_admin": True,
-                "is_active": True,
-            }
-        },
-    )
+    else:
+        await db.users.update_one(
+            {"email": "admin@ischuu.cl"},
+            {
+                "$set": {
+                    "is_admin": True,
+                    "is_active": True,
+                }
+            },
+        )
 
     if await db.products.count_documents({}) == 0:
         await db.products.insert_many(CATALOG)
+
 
 @app.get("/")
 async def root():

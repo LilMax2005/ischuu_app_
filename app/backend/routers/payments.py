@@ -63,6 +63,109 @@ async def enrich_cart_items(items: list[dict]) -> list[dict]:
 
     return enriched_items
 
+def normalize_shipping_address(data: dict) -> dict:
+    if not isinstance(data, dict):
+        raise HTTPException(
+            status_code=400,
+            detail="Dirección de despacho requerida",
+        )
+
+    recipient = str(data.get("recipient", "")).strip()
+    phone = str(data.get("phone", "")).strip()
+    region = str(data.get("region", "")).strip()
+    comuna = str(data.get("comuna", "")).strip()
+    street = str(data.get("street", "")).strip()
+    number = str(data.get("number", "")).strip()
+    details = str(data.get("details", "")).strip()
+
+    required_fields = {
+        "Nombre destinatario": recipient,
+        "Teléfono": phone,
+        "Región": region,
+        "Comuna": comuna,
+        "Calle": street,
+        "Número": number,
+    }
+
+    missing = [
+        field_name
+        for field_name, value in required_fields.items()
+        if not value
+    ]
+
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Faltan datos de despacho: {', '.join(missing)}",
+        )
+
+    full_address = f"{street} {number}, {comuna}, {region}"
+
+    if details:
+        full_address = f"{full_address}. Referencia: {details}"
+
+    return {
+        "recipient": recipient,
+        "phone": phone,
+        "region": region,
+        "comuna": comuna,
+        "street": street,
+        "number": number,
+        "details": details,
+        "full_address": full_address,
+    }
+
+def normalize_shipping_address(data: dict) -> dict:
+    if not isinstance(data, dict):
+        raise HTTPException(
+            status_code=400,
+            detail="Dirección de despacho requerida",
+        )
+
+    recipient = str(data.get("recipient", "")).strip()
+    phone = str(data.get("phone", "")).strip()
+    region = str(data.get("region", "")).strip()
+    comuna = str(data.get("comuna", "")).strip()
+    street = str(data.get("street", "")).strip()
+    number = str(data.get("number", "")).strip()
+    details = str(data.get("details", "")).strip()
+
+    required_fields = {
+        "Nombre destinatario": recipient,
+        "Teléfono": phone,
+        "Región": region,
+        "Comuna": comuna,
+        "Calle": street,
+        "Número": number,
+    }
+
+    missing = [
+        field_name
+        for field_name, value in required_fields.items()
+        if not value
+    ]
+
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Faltan datos de despacho: {', '.join(missing)}",
+        )
+
+    full_address = f"{street} {number}, {comuna}, {region}"
+
+    if details:
+        full_address = f"{full_address}. Referencia: {details}"
+
+    return {
+        "recipient": recipient,
+        "phone": phone,
+        "region": region,
+        "comuna": comuna,
+        "street": street,
+        "number": number,
+        "details": details,
+        "full_address": full_address,
+    }
 
 @router.post("/webpay/quote")
 async def quote_cart_payment(payload: dict, user: dict = Depends(current_user)):
@@ -79,6 +182,9 @@ async def quote_cart_payment(payload: dict, user: dict = Depends(current_user)):
 @router.post("/webpay/cart")
 async def create_cart_payment(payload: dict, user: dict = Depends(current_user)):
     enriched_items = await enrich_cart_items(payload.get("items", []))
+    shipping_address = normalize_shipping_address(
+        payload.get("shipping_address", {})
+    )
     totals = calculate_cart_totals(
         enriched_items,
         user,
@@ -105,6 +211,10 @@ async def create_cart_payment(payload: dict, user: dict = Depends(current_user))
                 "user_id": str(user["_id"]),
                 "buy_order": buy_order,
                 "items": enriched_items,
+
+                "shipping_address": shipping_address,
+                "shipping_address_text": shipping_address.get("full_address", ""),
+
                 "subtotal": totals["subtotal"],
                 "shipping": totals["shipping"],
                 "discount": totals["total_discount"],
@@ -118,17 +228,20 @@ async def create_cart_payment(payload: dict, user: dict = Depends(current_user))
                 "amount": totals["total"],
                 "status": "created",
                 "token": response["token"],
+                "webpay_url": response.get("url"),
                 "order_created": False,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
         )
+
+        redirect_url = f"{settings.api_base_url}/api/v1/payments/webpay/redirect/{response['token']}"
 
         return {
             "buy_order": buy_order,
             "amount": totals["total"],
             "token": response["token"],
             "url": response["url"],
-            "redirect_url": response["redirect_url"],
+            "redirect_url": redirect_url,
             **totals,
         }
 
@@ -162,15 +275,31 @@ async def webpay_return(request: Request):
     except Exception as exc:
         return HTMLResponse(f"<h2>Error al confirmar pago</h2><p>{exc}</p>")
 
+
+
+    status = result.get("status")
+
     return HTMLResponse(
         f"""
         <html>
-            <body style="font-family: Arial; padding: 30px;">
-                <h2>Resultado del pago Ischuu</h2>
-                <p><b>Estado:</b> {result.get('status')}</p>
-                <p><b>Total:</b> ${result.get('total', 0)}</p>
-                <p><b>Puntos ganados:</b> {result.get('points_earned', 0)}</p>
-                <p>Ya puedes volver a la aplicación y presionar Verificar pago.</p>
+            <head>
+                <title>Volviendo a Ischuu...</title>
+                <meta charset="UTF-8" />
+            </head>
+
+            <body style="font-family: Arial; padding: 20px;">
+                <p>Volviendo a Ischuu...</p>
+
+                <script>
+                    setTimeout(function() {{
+                        window.open('', '_self');
+                        window.close();
+                    }}, 300);
+
+                    setTimeout(function() {{
+                        document.body.innerHTML = "<p>Ya puedes cerrar esta ventana y volver a Ischuu.</p>";
+                    }}, 1500);
+                </script>
             </body>
         </html>
         """
@@ -198,7 +327,19 @@ async def finalize_payment(token: str, tx: dict) -> dict:
     )
 
     if status != "AUTHORIZED":
-        return {"status": status, "total": payment.get("total", 0), "points_earned": 0}
+        print("WEBPAY FAILED DETAIL:", tx)
+
+        return {
+            "status": status,
+            "total": payment.get("total", 0),
+            "points_earned": 0,
+            "response_code": tx.get("response_code"),
+            "vci": tx.get("vci"),
+            "buy_order": tx.get("buy_order"),
+            "authorization_code": tx.get("authorization_code"),
+            "payment_type_code": tx.get("payment_type_code"),
+            "installments_number": tx.get("installments_number"),
+        }
 
     existing_order = await db.orders.find_one({"webpay_token": token})
     if existing_order:
@@ -207,26 +348,44 @@ async def finalize_payment(token: str, tx: dict) -> dict:
             "order_id": str(existing_order["_id"]),
             "total": existing_order.get("total", 0),
             "points_earned": existing_order.get("points_earned", 0),
+            "response_code": tx.get("response_code"),
+            "vci": tx.get("vci"),
+            "buy_order": tx.get("buy_order"),
+            "authorization_code": tx.get("authorization_code"),
+            "payment_type_code": tx.get("payment_type_code"),
+            "installments_number": tx.get("installments_number"),
         }
 
-    points_earned = earned_points_for_amount(int(payment.get("product_amount_paid", 0)))
+    # Buscar datos del usuario dueño del pago
+    user_doc = await db.users.find_one(
+        {"_id": ObjectId(payment["user_id"])}
+    )
+
+    user_email = user_doc.get("email", "") if user_doc else ""
+    user_name = user_doc.get("name", "") if user_doc else ""
+
+    points_earned = earned_points_for_amount(
+        int(payment.get("product_amount_paid", 0))
+    )
+
     points_to_spend = int(payment.get("points_to_spend", 0))
     points_balance_change = points_earned - points_to_spend
 
     order = {
         "user_id": payment["user_id"],
+        "user_email": user_email,
+        "user_name": user_name,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "items": payment["items"],
+
+        "shipping_address": payment.get("shipping_address", {}),
+        "shipping_address_text": payment.get("shipping_address_text", ""),
+
         "subtotal": payment.get("subtotal", 0),
         "shipping": payment.get("shipping", 0),
         "discount": payment.get("discount", 0),
-        "preference_discount": payment.get("preference_discount", 0),
-        "points_discount": payment.get("points_discount", 0),
-        "points_used": points_to_spend,
-        "points_discount_label": payment.get("points_discount_label", ""),
-        "product_amount_paid": int(payment.get("product_amount_paid", 0)),
         "total": payment.get("total", 0),
-        "status": "Pagado",
+        "status": "Compra realizada",
         "payment_status": "paid",
         "buy_order": payment.get("buy_order"),
         "webpay_token": token,
@@ -237,23 +396,42 @@ async def finalize_payment(token: str, tx: dict) -> dict:
     result = await db.orders.insert_one(order)
 
     preferences_inc = {}
+
     for item in payment.get("items", []):
         category = item.get("category", "General")
-        preferences_inc[f"preferences.{category}"] = preferences_inc.get(f"preferences.{category}", 0) + int(item.get("quantity", 1))
+
+        preferences_inc[f"preferences.{category}"] = (
+            preferences_inc.get(f"preferences.{category}", 0)
+            + int(item.get("quantity", 1))
+        )
 
         await db.products.update_one(
             {"_id": ObjectId(item["product_id"])},
-            {"$inc": {"stock": -int(item.get("quantity", 1))}},
+            {
+                "$inc": {
+                    "stock": -int(item.get("quantity", 1))
+                }
+            },
         )
 
     await db.users.update_one(
         {"_id": ObjectId(payment["user_id"])},
-        {"$inc": {"points": points_balance_change, **preferences_inc}},
+        {
+            "$inc": {
+                "points": points_balance_change,
+                **preferences_inc,
+            }
+        },
     )
 
     await db.payments.update_one(
         {"token": token},
-        {"$set": {"order_id": str(result.inserted_id), "order_created": True}},
+        {
+            "$set": {
+                "order_id": str(result.inserted_id),
+                "order_created": True,
+            }
+        },
     )
 
     return {
@@ -261,8 +439,13 @@ async def finalize_payment(token: str, tx: dict) -> dict:
         "order_id": str(result.inserted_id),
         "total": payment.get("total", 0),
         "points_earned": points_earned,
+        "response_code": tx.get("response_code"),
+        "vci": tx.get("vci"),
+        "buy_order": tx.get("buy_order"),
+        "authorization_code": tx.get("authorization_code"),
+        "payment_type_code": tx.get("payment_type_code"),
+        "installments_number": tx.get("installments_number"),
     }
-
 
 @router.get("/webpay/status/{token}")
 async def get_payment_status(token: str, user: dict = Depends(current_user)):
@@ -282,3 +465,39 @@ async def get_payment_status(token: str, user: dict = Depends(current_user)):
         "amount": int(payment.get("amount", 0)),
         "total": int(payment.get("total", 0)),
     }
+
+@router.get("/webpay/redirect/{token}", response_class=HTMLResponse)
+async def webpay_redirect(token: str):
+    payment = await db.payments.find_one({"token": token})
+
+    if payment is None:
+        return HTMLResponse(
+            "<h2>Pago no encontrado</h2><p>No se encontró la transacción.</p>",
+            status_code=404,
+        )
+
+    webpay_url = payment.get("webpay_url")
+
+    if not webpay_url:
+        return HTMLResponse(
+            "<h2>Error Webpay</h2><p>No se encontró la URL de Webpay.</p>",
+            status_code=500,
+        )
+
+    return HTMLResponse(
+        f"""
+        <html>
+            <body>
+                <p>Redirigiendo a Webpay...</p>
+
+                <form id="webpay-form" method="POST" action="{webpay_url}">
+                    <input type="hidden" name="token_ws" value="{token}" />
+                </form>
+
+                <script>
+                    document.getElementById("webpay-form").submit();
+                </script>
+            </body>
+        </html>
+        """
+    )

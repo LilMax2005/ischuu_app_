@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -34,3 +34,4 @@ class User:
     notifications_enabled: bool = True
     is_admin: bool = False
     is_active: bool = True
+    shipping_address: dict = field(default_factory=dict)

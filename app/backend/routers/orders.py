@@ -18,18 +18,22 @@ async def current_user(authorization: str | None = Header(default=None)) -> dict
 def serialize_order(order: dict) -> dict:
     return {
         "id": str(order["_id"]),
-        "created_at": order.get("created_at"),
+        "user_id": order.get("user_id", ""),
+        "created_at": order.get("created_at", ""),
         "items": order.get("items", []),
+        "shipping_address": order.get("shipping_address", {}),
+        "shipping_address_text": order.get("shipping_address_text", ""),
+        "user_email": order.get("user_email", ""),
+        "user_name": order.get("user_name", ""),
         "subtotal": int(order.get("subtotal", 0)),
         "shipping": int(order.get("shipping", 0)),
         "discount": int(order.get("discount", 0)),
-        "preference_discount": int(order.get("preference_discount", 0)),
-        "points_discount": int(order.get("points_discount", 0)),
-        "points_used": int(order.get("points_used", 0)),
         "total": int(order.get("total", 0)),
-        "status": order.get("status", "Pendiente"),
-        "payment_status": order.get("payment_status", "pending"),
+        "status": order.get("status", "Compra realizada"),
+        "payment_status": order.get("payment_status", ""),
         "points_earned": int(order.get("points_earned", 0)),
+        "buy_order": order.get("buy_order", ""),
+        "status_history": order.get("status_history", []),
     }
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+
 import flet as ft
 
 from app.frontend.models.entities import CartItem
@@ -15,10 +16,124 @@ from app.frontend.views.theme import (
     outline_button_style,
     primary_button_style,
     section_title,
+    status_pill,
 )
 
 if TYPE_CHECKING:
     from app.frontend.controllers.app_controller import AppController
+
+def build_shipping_address_card(controller) -> ft.Control:
+    if controller.shipping_address_saved and not controller.shipping_address_editing:
+        return card(
+            ft.Column(
+                spacing=10,
+                controls=[
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[
+                            ft.Column(
+                                expand=True,
+                                spacing=4,
+                                controls=[
+                                    section_title("Dirección de despacho", 18),
+                                    ft.Text(
+                                        controller.shipping_address_text(),
+                                        color=IschuuColors.TEXT_MUTED,
+                                        size=13,
+                                    ),
+                                    ft.Text(
+                                        f"Recibe: {controller.shipping_recipient.value or ''} · Tel: {controller.shipping_phone.value or ''}",
+                                        color=IschuuColors.TEXT_MUTED,
+                                        size=12,
+                                    ),
+                                ],
+                            ),
+                            status_pill("Guardada", "success"),
+                        ],
+                    ),
+                    ft.OutlinedButton(
+                        content="Modificar dirección",
+                        icon=ft.Icons.EDIT_LOCATION_ALT_OUTLINED,
+                        on_click=lambda e: controller.handle_edit_shipping_address(),
+                        style=outline_button_style(),
+                    ),
+                ],
+            ),
+            padding=16,
+        )
+
+    buttons = [
+        ft.FilledButton(
+            content="Guardar dirección",
+            icon=ft.Icons.SAVE,
+            on_click=lambda e: controller.run_async(
+                controller.handle_save_shipping_address()
+            ),
+            style=primary_button_style(),
+        )
+    ]
+
+    if controller.shipping_address_saved:
+        buttons.append(
+            ft.OutlinedButton(
+                content="Cancelar edición",
+                icon=ft.Icons.CANCEL_OUTLINED,
+                on_click=lambda e: controller.handle_cancel_edit_shipping_address(),
+                style=outline_button_style(),
+            )
+        )
+
+    return card(
+        ft.Column(
+            spacing=12,
+            controls=[
+                section_title("Dirección de despacho", 18),
+                muted_text(
+                    "Ingresa los datos donde quieres recibir tu pedido. Esta sección se minimizará después de guardar."
+                ),
+                controller.shipping_recipient,
+                controller.shipping_phone,
+                ft.Row(
+                    wrap=True,
+                    spacing=10,
+                    run_spacing=10,
+                    controls=[
+                        ft.Container(
+                            width=300,
+                            content=controller.shipping_region,
+                        ),
+                        ft.Container(
+                            width=300,
+                            content=controller.shipping_comuna,
+                        ),
+                    ],
+                ),
+                ft.Row(
+                    wrap=True,
+                    spacing=10,
+                    run_spacing=10,
+                    controls=[
+                        ft.Container(
+                            width=420,
+                            content=controller.shipping_street,
+                        ),
+                        ft.Container(
+                            width=160,
+                            content=controller.shipping_number,
+                        ),
+                    ],
+                ),
+                controller.shipping_details,
+                ft.Row(
+                    wrap=True,
+                    spacing=10,
+                    run_spacing=10,
+                    controls=buttons,
+                ),
+            ],
+        ),
+        padding=16,
+    )
 
 
 def build_cart_view(controller: "AppController") -> ft.Control:
@@ -34,6 +149,19 @@ def build_cart_view(controller: "AppController") -> ft.Control:
     )
 
     has_backend_quote = bool(cart_quote)
+
+    if not controller.cart_quote_box.controls:
+        controller.cart_quote_box.controls = [
+            build_summary_row(
+                "Total estimado",
+                currency(total_to_pay),
+                highlight=True,
+            ),
+            muted_text(
+                "El total final se actualizará al calcular descuentos.",
+                12,
+            ),
+        ]
 
     if not items_controls:
         items_controls = [
@@ -54,46 +182,29 @@ def build_cart_view(controller: "AppController") -> ft.Control:
         spacing=14,
         controls=[
             section_title("Carrito", 22),
-            muted_text("Revisa tus productos, envío, descuentos y total antes de abrir Webpay."),
-            ft.Column(spacing=12, controls=items_controls),
+            *items_controls,
+
+            build_shipping_address_card(controller),
+
             card(
                 ft.Column(
                     spacing=10,
                     controls=[
-                        build_summary_row("Productos", str(controller.state.cart_count)),
-                        build_summary_row("Subtotal", currency(controller.state.cart_total)),
-                        build_summary_row("Envío", "Gratis" if controller.state.shipping_total == 0 and controller.state.cart_total else currency(controller.state.shipping_total)),
-                        ft.Text("Envío gratis desde $25.000.", color=IschuuColors.SUCCESS, size=12, weight=ft.FontWeight.W_600),
-                        ft.Divider(color=IschuuColors.BORDER),
                         controller.use_points_switch,
                         controller.cart_quote_box,
-                        ft.OutlinedButton(
-                            content="Actualizar descuentos",
-                            icon=ft.Icons.REFRESH,
-                            on_click=lambda e: controller.run_async(controller.refresh_cart_quote()),
-                            disabled=not controller.state.cart or not controller.state.current_user,
-                            style=outline_button_style(),
-                        ),
-
                         ft.FilledButton(
                             content="Pagar con Webpay",
                             icon=ft.Icons.PAYMENTS,
-                            height=48,
-                            on_click=lambda e: controller.run_async(controller.handle_checkout()),
+                            on_click=lambda e: controller.run_async(
+                                controller.handle_checkout()
+                            ),
                             disabled=not controller.state.cart,
                             style=primary_button_style(),
-                        ),
-                        ft.OutlinedButton(
-                            content="Verificar pago",
-                            icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
-                            on_click=lambda e: controller.run_async(controller.check_pending_payment()),
-                            disabled=not controller.state.current_user,
-                            style=outline_button_style(),
                         ),
                     ],
                 ),
                 padding=16,
-            ),
+            )
         ],
     )
 
