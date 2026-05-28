@@ -1,97 +1,78 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
+
 import flet as ft
 
-from app.models.entities import Product
-from app.utils.formatters import currency
+from app.frontend.models.entities import Product
+from app.frontend.utils.formatters import currency
+from app.frontend.views.theme import (
+    IschuuColors,
+    card,
+    image_box,
+    muted_text,
+    outline_button_style,
+    pill,
+    primary_button_style,
+    section_title,
+    soft_card,
+    status_pill,
+)
 
 if TYPE_CHECKING:
-    from app.controllers.app_controller import AppController
+    from app.frontend.controllers.app_controller import AppController
 
 
 def build_store_view(controller: "AppController") -> ft.Control:
-    product_cards: List[ft.Control] = [build_product_card(controller, product) for product in controller.state.filtered_products]
-
-    if not product_cards:
-        product_cards = [
-            ft.Container(
-                padding=20,
-                border_radius=18,
-                bgcolor="#1b1b1b",
-                content=ft.Text("No se encontraron productos con ese filtro."),
-            )
-        ]
+    controller.refresh_product_list()
 
     return ft.Column(
         spacing=14,
         controls=[
-            ft.Text("Tienda", size=22, weight=ft.FontWeight.BOLD),
-            ft.Text("Explora blind box de anime, videojuegos y coleccionables.", color=ft.Colors.WHITE70),
+            section_title("Catálogo Ischuu", 22),
+            muted_text("Explora blind box de anime, kawaii y coleccionables seleccionados."),
             controller.search_field,
             controller.category_dropdown,
+            controller.product_list,
             build_social_banner(controller),
-            ft.Column(spacing=12, controls=product_cards),
         ],
     )
 
 
 def build_product_card(controller: "AppController", product: Product) -> ft.Control:
-    badge_color = ft.Colors.GREEN_400 if product.is_original else ft.Colors.ORANGE_300
+    badge_status = "success" if product.is_original else "warning"
+    badge_label = "Original" if product.is_original else "Alternativo"
 
     def add(_: ft.ControlEvent) -> None:
         controller.handle_add_to_cart(product.id)
 
-    return ft.Container(
-        padding=14,
-        border_radius=18,
-        bgcolor="#1b1b1b",
-        content=ft.Column(
+    return card(
+        ft.Column(
             spacing=12,
             controls=[
-                ft.Image(src=product.image, height=170, fit=ft.BoxFit.COVER, border_radius=14),
+                image_box(product.image, height=180, border_radius=18),
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    wrap=True,
                     controls=[
-                        ft.Container(
-                            padding=ft.padding.symmetric(horizontal=10, vertical=6),
-                            bgcolor="#ffffff14",
-                            border_radius=999,
-                            content=ft.Text(product.category, size=12),
-                        ),
-                        ft.Container(
-                            padding=ft.padding.symmetric(horizontal=10, vertical=6),
-                            bgcolor="#ffffff14",
-                            border_radius=999,
-                            content=ft.Text(product.rarity, size=12),
-                        ),
+                        pill(product.category, ft.Icons.CATEGORY_OUTLINED),
+                        pill(product.rarity, ft.Icons.AUTO_AWESOME),
                     ],
                 ),
-                ft.Text(product.name, size=18, weight=ft.FontWeight.BOLD),
-                ft.Text(product.series, color=ft.Colors.WHITE70),
-                ft.Text(product.description, size=13, color=ft.Colors.WHITE60),
+                ft.Text(product.name, size=18, weight=ft.FontWeight.BOLD, color=IschuuColors.TEXT),
+                ft.Text(product.series, color=IschuuColors.TEXT_MUTED),
+                ft.Text(product.description, size=13, color=IschuuColors.TEXT_SOFT),
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
                         ft.Column(
                             spacing=2,
                             controls=[
-                                ft.Text(currency(product.price), size=19, weight=ft.FontWeight.BOLD),
-                                ft.Text(f"Stock: {product.stock}", size=12, color=ft.Colors.WHITE70),
+                                ft.Text(currency(product.price), size=20, weight=ft.FontWeight.BOLD, color=IschuuColors.VANILLA),
+                                ft.Text(f"Stock: {product.stock}", size=12, color=IschuuColors.TEXT_MUTED),
                             ],
                         ),
-                        ft.Container(
-                            padding=ft.padding.symmetric(horizontal=10, vertical=6),
-                            border_radius=999,
-                            bgcolor="#ffffff14",
-                            content=ft.Row(
-                                spacing=6,
-                                controls=[
-                                    ft.Icon(ft.Icons.VERIFIED, color=badge_color, size=18),
-                                    ft.Text("Original" if product.is_original else "Alternativo", size=12),
-                                ],
-                            ),
-                        ),
+                        status_pill(badge_label, badge_status),
                     ],
                 ),
                 ft.FilledButton(
@@ -99,38 +80,52 @@ def build_product_card(controller: "AppController", product: Product) -> ft.Cont
                     icon=ft.Icons.ADD_SHOPPING_CART,
                     on_click=add,
                     disabled=product.stock <= 0,
+                    style=primary_button_style(),
                 ),
             ],
         ),
+        padding=14,
     )
 
 
 def build_social_banner(controller: "AppController") -> ft.Control:
-    def open_instagram(_: ft.ControlEvent) -> None:
-        controller.page.launch_url("https://www.instagram.com/ischuu._")
+    async def open_instagram(e) -> None:
+        await controller.page.launch_url("https://www.instagram.com/ischuu._")
 
-    def open_tiktok(_: ft.ControlEvent) -> None:
-        controller.page.launch_url("https://www.tiktok.com/")
+    async def open_tiktok(e) -> None:
+        await controller.page.launch_url("https://www.tiktok.com/ischuu._")
 
-    return ft.Container(
-        padding=16,
-        border_radius=18,
-        bgcolor="#1b1b1b",
-        content=ft.Column(
+    return soft_card(
+        ft.Column(
             spacing=12,
             controls=[
-                ft.Text("Integración social", size=18, weight=ft.FontWeight.BOLD),
-                ft.Text(
-                    "Desde aquí puedes dirigir a los clientes a Instagram y TikTok para reforzar campañas, reels y contenido promocional.",
-                    size=13,
-                    color=ft.Colors.WHITE70,
-                ),
                 ft.Row(
+                    spacing=10,
                     controls=[
-                        ft.OutlinedButton(content="Instagram", icon=ft.Icons.CAMERA_ALT_OUTLINED, on_click=open_instagram),
-                        ft.OutlinedButton(content="TikTok", icon=ft.Icons.MUSIC_NOTE_OUTLINED, on_click=open_tiktok),
-                    ]
+                        ft.Icon(ft.Icons.CAMERA_ALT_OUTLINED, color=IschuuColors.PRIMARY),
+                        ft.Text("Síguenos en redes", size=18, weight=ft.FontWeight.BOLD, color=IschuuColors.TEXT),
+                    ],
+                ),
+                muted_text("Mira novedades, reels, clientes felices y próximos lanzamientos."),
+                ft.Row(
+                    wrap=True,
+                    spacing=10,
+                    controls=[
+                        ft.OutlinedButton(
+                            content="Instagram",
+                            icon=ft.Icons.CAMERA_ALT_OUTLINED,
+                            on_click=open_instagram,
+                            style=outline_button_style(),
+                        ),
+                        ft.OutlinedButton(
+                            content="TikTok",
+                            icon=ft.Icons.MUSIC_NOTE_OUTLINED,
+                            on_click=open_tiktok,
+                            style=outline_button_style(),
+                        ),
+                    ],
                 ),
             ],
         ),
+        padding=16,
     )
