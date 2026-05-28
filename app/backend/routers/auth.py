@@ -20,16 +20,15 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
 
 def serialize_user(user: dict) -> dict:
-    preferences = user.get("preferences", {}) or {}
     return {
         "id": str(user["_id"]),
-        "name": user["name"],
-        "email": user["email"],
-        "points": user.get("points", 0),
-        "preferences": preferences,
-        "favorite_categories": top_preference_categories(user),
-        "is_admin": user.get("is_admin", False),
-        "is_active": user.get("is_active", True),
+        "name": user.get("name", ""),
+        "email": user.get("email", ""),
+        "points": int(user.get("points", 0)),
+        "preferences": user.get("preferences", {}) or {},
+        "favorite_categories": user.get("favorite_categories", []),
+        "is_admin": bool(user.get("is_admin", False)),
+        "is_active": bool(user.get("is_active", True)),
     }
 
 
