@@ -114,12 +114,6 @@ def build_orders_view(controller) -> ft.Control:
 def build_order_card(order: Any) -> ft.Control:
     order_id = str(order_get(order, "id", ""))
 
-    shipping_address = order_get(order, "shipping_address", {}) or {}
-    shipping_address_text = shipping_address.get(
-        "full_address",
-        order_get(order, "shipping_address_text", "Dirección no disponible"),
-    )
-
     created_at = format_order_date(
         str(order_get(order, "created_at", ""))
     )
@@ -139,26 +133,42 @@ def build_order_card(order: Any) -> ft.Control:
             for item in items
         ]
     )
-    ft.Container(
-        padding=12,
-        border_radius=14,
-        bgcolor=IschuuColors.SURFACE_ALT,
-        content=ft.Column(
-            spacing=6,
-            controls=[
-                ft.Text(
-                    "Dirección de despacho",
-                    color=IschuuColors.TEXT,
-                    weight=ft.FontWeight.BOLD,
-                ),
-                ft.Text(
-                    shipping_address_text,
-                    color=IschuuColors.TEXT_MUTED,
-                    size=13,
-                ),
-            ],
-        ),
-    ),
+
+    # Dirección de despacho
+    shipping_address = order_get(order, "shipping_address", {}) or {}
+
+    if isinstance(shipping_address, dict):
+        shipping_address_text = shipping_address.get(
+            "full_address",
+            order_get(
+                order,
+                "shipping_address_text",
+                "Dirección no disponible",
+            ),
+        )
+
+        recipient = shipping_address.get(
+            "recipient",
+            "No informado",
+        )
+
+        phone = shipping_address.get(
+            "phone",
+            "No informado",
+        )
+    else:
+        shipping_address_text = str(
+            shipping_address
+            or order_get(
+                order,
+                "shipping_address_text",
+                "Dirección no disponible",
+            )
+        )
+
+        recipient = "No informado"
+        phone = "No informado"
+
     subtotal = int(order_get(order, "subtotal", 0))
     shipping = int(order_get(order, "shipping", 0))
     discount = int(order_get(order, "discount", 0))
@@ -235,9 +245,48 @@ def build_order_card(order: Any) -> ft.Control:
                                 spacing=8,
                                 run_spacing=8,
                                 controls=[
-                                    build_step_chip(step, index <= current_step_index)
+                                    build_step_chip(
+                                        step,
+                                        index <= current_step_index,
+                                    )
                                     for index, step in enumerate(ORDER_STEPS)
                                 ],
+                            ),
+                        ],
+                    ),
+                ),
+
+                ft.Container(
+                    padding=12,
+                    border_radius=14,
+                    bgcolor=IschuuColors.SURFACE_ALT,
+                    content=ft.Column(
+                        spacing=6,
+                        controls=[
+                            ft.Row(
+                                spacing=8,
+                                controls=[
+                                    ft.Icon(
+                                        ft.Icons.LOCATION_ON_OUTLINED,
+                                        color=IschuuColors.PRIMARY,
+                                        size=20,
+                                    ),
+                                    ft.Text(
+                                        "Dirección de despacho",
+                                        color=IschuuColors.TEXT,
+                                        weight=ft.FontWeight.BOLD,
+                                    ),
+                                ],
+                            ),
+                            ft.Text(
+                                shipping_address_text,
+                                color=IschuuColors.TEXT_MUTED,
+                                size=13,
+                            ),
+                            ft.Text(
+                                f"Recibe: {recipient} · Tel: {phone}",
+                                color=IschuuColors.TEXT_MUTED,
+                                size=12,
                             ),
                         ],
                     ),
