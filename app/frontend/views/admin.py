@@ -93,8 +93,8 @@ def build_admin_dashboard(controller: "AppController") -> ft.Control:
     cards = [
         ("Usuarios", summary.get("users", 0), ft.Icons.GROUP_OUTLINED, "info"),
         ("Productos", summary.get("products", 0), ft.Icons.INVENTORY_2_OUTLINED, "pink"),
-        ("Pedidos", summary.get("orders", 0), ft.Icons.RECEIPT_LONG_OUTLINED, "info"),
-        ("Pagados", summary.get("paid_orders", 0), ft.Icons.CHECK_CIRCLE_OUTLINE, "success"),
+        ("Pedidos totales", summary.get("orders", 0), ft.Icons.RECEIPT_LONG_OUTLINED, "info"),
+        ("Pagos aprobados", summary.get("paid_orders", 0), ft.Icons.CHECK_CIRCLE_OUTLINE, "success"),
         ("Ventas", currency(int(summary.get("revenue", 0))), ft.Icons.PAYMENTS_OUTLINED, "success"),
         ("Stock bajo", summary.get("low_stock", 0), ft.Icons.WARNING_AMBER_OUTLINED, "warning"),
     ]
@@ -114,10 +114,10 @@ def build_admin_dashboard(controller: "AppController") -> ft.Control:
                 ft.Column(
                     spacing=8,
                     controls=(
-                        [section_title("Estados de pedidos", 18)]
-                        + [build_summary_row(status, str(count)) for status, count in status_counts.items()]
+                        [section_title("Estado de pedidos", 18)]
+                        + [build_summary_row(status, str(status_counts.get(status, 0))) for status in ORDER_STATUSES]
                         if status_counts
-                        else [section_title("Estados de pedidos", 18), muted_text("Aún no hay información de pedidos.")]
+                        else [section_title("Estado de pedidos", 18), muted_text("Aún no hay información de pedidos.")]
                     ),
                 ),
                 padding=16,
@@ -183,27 +183,23 @@ def build_admin_products(controller: "AppController") -> ft.Control:
 def build_product_form(controller: "AppController") -> ft.Control:
     name = ft.TextField(
         label="Nombre",
-        width=340,
         **input_style(),
     )
 
     series = ft.TextField(
         label="Serie",
-        width=340,
         **input_style(),
     )
 
     category = ft.TextField(
         label="Categoría",
         value="General",
-        width=220,
         **input_style(),
     )
 
     rarity = ft.TextField(
         label="Rareza",
         value="Común",
-        width=220,
         **input_style(),
     )
 
@@ -223,7 +219,6 @@ def build_product_form(controller: "AppController") -> ft.Control:
 
     description = ft.TextField(
         label="Descripción",
-        width=700,
         height=90,
         **input_style(),
     )
@@ -231,14 +226,12 @@ def build_product_form(controller: "AppController") -> ft.Control:
     image_url = ft.TextField(
         label="URL imagen",
         hint_text="Ej: https://...",
-        width=700,
         **input_style(),
     )
 
     image_path = ft.TextField(
         label="Ruta local de imagen opcional",
         hint_text=r"Ej: C:\Users\diegm\Pictures\producto.png",
-        width=700,
         **input_style(),
     )
 

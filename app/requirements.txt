@@ -1,0 +1,17 @@
+flet[all]
+flet-onesignal>=0.4.4
+fastapi
+uvicorn[standard]
+motor
+pymongo
+httpx
+python-dotenv
+python-multipart
+PyJWT
+pwdlib[argon2]
+pydantic
+pydantic-settings
+transbank-sdk
+dnspython
+certifi
+openpyxl

@@ -35,18 +35,30 @@ def object_id(value: str) -> ObjectId:
 
 @router.get("/summary")
 async def admin_summary(_: dict = Depends(get_current_admin)):
+    """Resumen consistente entre tarjetas y desglose de estados.
+
+    Los estados logísticos se calculan únicamente sobre pedidos con pago
+    aprobado. Así, la suma del desglose coincide con ``paid_orders``.
+    """
     orders = await db.orders.find().to_list(length=5000)
-    paid = [order for order in orders if order.get("payment_status") == "paid"]
+    paid_orders = [
+        order
+        for order in orders
+        if str(order.get("payment_status", "")).lower() == "paid"
+    ]
+
     status_counts = {status: 0 for status in ORDER_STATUSES}
-    for order in orders:
+    for order in paid_orders:
         serialized_status = serialize_order(order)["status"]
         status_counts[serialized_status] = status_counts.get(serialized_status, 0) + 1
+
     return {
         "users": await db.users.count_documents({}),
         "products": await db.products.count_documents({}),
         "orders": len(orders),
-        "paid_orders": len(paid),
-        "revenue": sum(int(order.get("total", 0)) for order in paid),
+        "paid_orders": len(paid_orders),
+        "status_total": sum(status_counts.values()),
+        "revenue": sum(int(order.get("total", 0)) for order in paid_orders),
         "low_stock": await db.products.count_documents({"stock": {"$lte": 3}}),
         "status_counts": status_counts,
         "statuses": ORDER_STATUSES,

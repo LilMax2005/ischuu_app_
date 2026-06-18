@@ -210,6 +210,8 @@ def build_cart_view(controller: "AppController") -> ft.Control:
 
 
 def build_cart_item(controller: "AppController", item: CartItem) -> ft.Control:
+    """Tarjeta vertical para móvil con controles táctiles visibles."""
+
     def increase(_: ft.ControlEvent) -> None:
         controller.handle_change_quantity(item.product.id, 1)
 
@@ -220,29 +222,84 @@ def build_cart_item(controller: "AppController", item: CartItem) -> ft.Control:
         controller.handle_remove_from_cart(item.product.id)
 
     return card(
-        ft.Row(
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ft.Column(
+            spacing=12,
             controls=[
-                image_box(item.product.image, width=90, height=90, border_radius=14),
-                ft.Column(
-                    expand=True,
-                    spacing=6,
+                ft.Row(
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Text(item.product.name, weight=ft.FontWeight.BOLD, color=IschuuColors.TEXT),
-                        ft.Text(currency(item.product.price), color=IschuuColors.TEXT_MUTED),
-                        ft.Row(
-                            spacing=6,
+                        image_box(
+                            item.product.image,
+                            width=78,
+                            height=78,
+                            border_radius=14,
+                        ),
+                        ft.Column(
+                            expand=True,
+                            spacing=5,
                             controls=[
-                                ft.IconButton(icon=ft.Icons.REMOVE_CIRCLE_OUTLINE, icon_color=IschuuColors.SKY, on_click=decrease),
-                                ft.Text(str(item.quantity), size=16, weight=ft.FontWeight.BOLD, color=IschuuColors.TEXT),
-                                ft.IconButton(icon=ft.Icons.ADD_CIRCLE_OUTLINE, icon_color=IschuuColors.SUCCESS, on_click=increase),
-                                ft.IconButton(icon=ft.Icons.DELETE_OUTLINE, icon_color=IschuuColors.DANGER, on_click=remove),
+                                ft.Text(
+                                    item.product.name,
+                                    weight=ft.FontWeight.BOLD,
+                                    color=IschuuColors.TEXT,
+                                    max_lines=3,
+                                    overflow=ft.TextOverflow.ELLIPSIS,
+                                ),
+                                ft.Text(
+                                    currency(item.product.price),
+                                    color=IschuuColors.TEXT_MUTED,
+                                ),
                             ],
+                        ),
+                        ft.Text(
+                            currency(item.product.price * item.quantity),
+                            weight=ft.FontWeight.BOLD,
+                            color=IschuuColors.VANILLA,
                         ),
                     ],
                 ),
-                ft.Text(currency(item.product.price * item.quantity), weight=ft.FontWeight.BOLD, color=IschuuColors.VANILLA),
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Row(
+                            spacing=2,
+                            tight=True,
+                            controls=[
+                                ft.IconButton(
+                                    icon=ft.Icons.REMOVE_CIRCLE_OUTLINE,
+                                    icon_color=IschuuColors.SKY,
+                                    tooltip="Disminuir cantidad",
+                                    on_click=decrease,
+                                ),
+                                ft.Container(
+                                    width=34,
+                                    alignment=ft.Alignment.CENTER,
+                                    content=ft.Text(
+                                        str(item.quantity),
+                                        size=16,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=IschuuColors.TEXT,
+                                    ),
+                                ),
+                                ft.IconButton(
+                                    icon=ft.Icons.ADD_CIRCLE_OUTLINE,
+                                    icon_color=IschuuColors.SUCCESS,
+                                    tooltip="Aumentar cantidad",
+                                    on_click=increase,
+                                ),
+                            ],
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE_OUTLINE,
+                            icon_color=IschuuColors.DANGER,
+                            tooltip="Eliminar del carrito",
+                            on_click=remove,
+                        ),
+                    ],
+                ),
             ],
         ),
         padding=14,
     )
+

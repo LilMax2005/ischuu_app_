@@ -15,95 +15,82 @@ if TYPE_CHECKING:
 
 
 def build_header(controller: "AppController") -> ft.Control:
+    """Encabezado compacto y seguro para pantallas móviles."""
     user = controller.state.current_user
-
     user_name = getattr(user, "name", "Invitado") if user else "Invitado"
-    user_points = getattr(user, "points", 0) if user else 0
+    user_points = max(0, int(getattr(user, "points", 0))) if user else 0
 
+    # En móvil se evita una fila muy ancha: el nombre ocupa el espacio
+    # disponible y los puntos se muestran siempre en una segunda fila.
     return ft.Container(
-        padding=ft.Padding.symmetric(horizontal=18, vertical=18),
+        padding=ft.Padding(left=16, top=16, right=16, bottom=14),
         border_radius=24,
         gradient=ft.LinearGradient(colors=IschuuColors.HEADER_GRADIENT),
-        content=ft.Row(
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        content=ft.Column(
+            spacing=10,
             controls=[
-                ft.Column(
-                    spacing=4,
-                    controls=[
-                        ft.Text(
-                            "Ischuu",
-                            size=30,
-                            weight=ft.FontWeight.BOLD,
-                            color=IschuuColors.CREAM,
-                        ),
-                        ft.Text(
-                            f"Bienvenido, {user_name}",
-                            size=13,
-                            color=IschuuColors.TEXT_MUTED,
-                        ),
-                    ],
-                ),
                 ft.Row(
-                    spacing=8,
-                    tight=True,
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Container(
-                            padding=ft.Padding.symmetric(horizontal=10, vertical=9),
-                            border_radius=16,
-                            bgcolor=IschuuColors.SURFACE_ALT,
-                            border=app_border(IschuuColors.BORDER_SOFT),
+                        ft.Column(
+                            expand=True,
+                            spacing=3,
+                            controls=[
+                                ft.Text(
+                                    "Ischuu",
+                                    size=28,
+                                    weight=ft.FontWeight.BOLD,
+                                    color=IschuuColors.CREAM,
+                                ),
+                                ft.Text(
+                                    f"Bienvenido, {user_name}",
+                                    size=12,
+                                    color=IschuuColors.TEXT_MUTED,
+                                    max_lines=1,
+                                    overflow=ft.TextOverflow.ELLIPSIS,
+                                ),
+                            ],
+                        ),
+                        ft.IconButton(
+                            icon=(
+                                ft.Icons.LIGHT_MODE_OUTLINED
+                                if controller.is_light_theme
+                                else ft.Icons.DARK_MODE_OUTLINED
+                            ),
+                            icon_color=IschuuColors.PRIMARY,
                             tooltip=(
                                 "Cambiar a tema oscuro"
                                 if controller.is_light_theme
                                 else "Cambiar a tema claro"
                             ),
                             on_click=lambda _e: controller.toggle_theme(),
-                            content=ft.Row(
-                                spacing=6,
-                                tight=True,
-                                controls=[
-                                    ft.Icon(
-                                        ft.Icons.LIGHT_MODE_OUTLINED
-                                        if controller.is_light_theme
-                                        else ft.Icons.DARK_MODE_OUTLINED,
-                                        color=IschuuColors.PRIMARY,
-                                        size=18,
-                                    ),
-                                    ft.Text(
-                                        "Claro" if controller.is_light_theme else "Oscuro",
-                                        size=11,
-                                        weight=ft.FontWeight.W_600,
-                                        color=IschuuColors.TEXT,
-                                    ),
-                                ],
-                            ),
-                        ),
-                        ft.Container(
-                            padding=ft.Padding.symmetric(horizontal=12, vertical=9),
-                            border_radius=16,
-                            bgcolor=IschuuColors.SURFACE_ALT,
-                            border=app_border(IschuuColors.PRIMARY),
-                            content=ft.Row(
-                                spacing=7,
-                                tight=True,
-                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                                controls=[
-                                    ft.Icon(
-                                        ft.Icons.STARS,
-                                        color=IschuuColors.VANILLA,
-                                        size=18,
-                                    ),
-                                    ft.Text(
-                                        str(user_points),
-                                        size=14,
-                                        weight=ft.FontWeight.BOLD,
-                                        color=IschuuColors.TEXT,
-                                    ),
-                                ],
-                            ),
                         ),
                     ],
+                ),
+                ft.Container(
+                    padding=ft.Padding(left=12, top=8, right=12, bottom=8),
+                    border_radius=16,
+                    bgcolor=IschuuColors.SURFACE_ALT,
+                    border=app_border(IschuuColors.PRIMARY),
+                    content=ft.Row(
+                        spacing=8,
+                        tight=True,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            ft.Icon(
+                                ft.Icons.STARS,
+                                color=IschuuColors.VANILLA,
+                                size=18,
+                            ),
+                            ft.Text(
+                                f"Puntos acumulados: {user_points}",
+                                size=13,
+                                weight=ft.FontWeight.BOLD,
+                                color=IschuuColors.TEXT,
+                            ),
+                        ],
+                    ),
                 ),
             ],
         ),
