@@ -119,6 +119,24 @@ class ApiClient:
             response.raise_for_status()
             return response.json()
 
+    async def get_notification_config(self) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.base_url}/api/v1/notifications/config"
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def update_notification_preference(self, enabled: bool) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.patch(
+                f"{self.base_url}/api/v1/auth/me/notifications",
+                json={"enabled": enabled},
+                headers=self.headers(),
+            )
+            response.raise_for_status()
+            return response.json()
+
     # =========================
     # WEBPAY
     # =========================

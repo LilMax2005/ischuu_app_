@@ -7,7 +7,6 @@ import flet as ft
 from app.frontend.views.theme import (
     IschuuColors,
     app_border,
-    build_theme,
     pill,
 )
 
@@ -24,13 +23,7 @@ def build_header(controller: "AppController") -> ft.Control:
     return ft.Container(
         padding=ft.Padding.symmetric(horizontal=18, vertical=18),
         border_radius=24,
-        gradient=ft.LinearGradient(
-            colors=[
-                "#111827",
-                "#25172B",
-                "#4C1D3F",
-            ],
-        ),
+        gradient=ft.LinearGradient(colors=IschuuColors.HEADER_GRADIENT),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -51,34 +44,66 @@ def build_header(controller: "AppController") -> ft.Control:
                         ),
                     ],
                 ),
-                ft.Container(
-                    padding=ft.Padding.symmetric(horizontal=14, vertical=10),
-                    border_radius=16,
-                    bgcolor=IschuuColors.SURFACE_ALT,
-                    border=ft.Border(
-                        left=ft.BorderSide(1, IschuuColors.PRIMARY),
-                        top=ft.BorderSide(1, IschuuColors.PRIMARY),
-                        right=ft.BorderSide(1, IschuuColors.PRIMARY),
-                        bottom=ft.BorderSide(1, IschuuColors.PRIMARY),
-                    ),
-                    content=ft.Row(
-                        spacing=8,
-                        tight=True,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        controls=[
-                            ft.Icon(
-                                ft.Icons.STARS,
-                                color=IschuuColors.VANILLA,
-                                size=18,
+                ft.Row(
+                    spacing=8,
+                    tight=True,
+                    controls=[
+                        ft.Container(
+                            padding=ft.Padding.symmetric(horizontal=10, vertical=9),
+                            border_radius=16,
+                            bgcolor=IschuuColors.SURFACE_ALT,
+                            border=app_border(IschuuColors.BORDER_SOFT),
+                            tooltip=(
+                                "Cambiar a tema oscuro"
+                                if controller.is_light_theme
+                                else "Cambiar a tema claro"
                             ),
-                            ft.Text(
-                                str(user_points),
-                                size=14,
-                                weight=ft.FontWeight.BOLD,
-                                color=IschuuColors.TEXT,
+                            on_click=lambda _e: controller.toggle_theme(),
+                            content=ft.Row(
+                                spacing=6,
+                                tight=True,
+                                controls=[
+                                    ft.Icon(
+                                        ft.Icons.LIGHT_MODE_OUTLINED
+                                        if controller.is_light_theme
+                                        else ft.Icons.DARK_MODE_OUTLINED,
+                                        color=IschuuColors.PRIMARY,
+                                        size=18,
+                                    ),
+                                    ft.Text(
+                                        "Claro" if controller.is_light_theme else "Oscuro",
+                                        size=11,
+                                        weight=ft.FontWeight.W_600,
+                                        color=IschuuColors.TEXT,
+                                    ),
+                                ],
                             ),
-                        ],
-                    ),
+                        ),
+                        ft.Container(
+                            padding=ft.Padding.symmetric(horizontal=12, vertical=9),
+                            border_radius=16,
+                            bgcolor=IschuuColors.SURFACE_ALT,
+                            border=app_border(IschuuColors.PRIMARY),
+                            content=ft.Row(
+                                spacing=7,
+                                tight=True,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                controls=[
+                                    ft.Icon(
+                                        ft.Icons.STARS,
+                                        color=IschuuColors.VANILLA,
+                                        size=18,
+                                    ),
+                                    ft.Text(
+                                        str(user_points),
+                                        size=14,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=IschuuColors.TEXT,
+                                    ),
+                                ],
+                            ),
+                        ),
+                    ],
                 ),
             ],
         ),
@@ -136,6 +161,11 @@ def build_navigation_bar(controller: "AppController") -> ft.NavigationBar:
             selected_icon=ft.Icons.PERSON,
             label="Perfil",
         ),
+        ft.NavigationBarDestination(
+            icon=ft.Icons.HELP_OUTLINE,
+            selected_icon=ft.Icons.HELP,
+            label="Ayuda",
+        ),
     ]
 
     if controller.is_admin():
@@ -147,8 +177,15 @@ def build_navigation_bar(controller: "AppController") -> ft.NavigationBar:
             )
         )
 
+    max_index = len(destinations) - 1
+    selected_index = int(getattr(controller, "current_section", 0))
+
+    if selected_index < 0 or selected_index > max_index:
+        selected_index = 0
+        controller.current_section = 0
+
     return ft.NavigationBar(
-        selected_index=controller.current_section,
+        selected_index=selected_index,
         bgcolor=IschuuColors.SURFACE,
         indicator_color=IschuuColors.PRIMARY_STRONG,
         destinations=destinations,

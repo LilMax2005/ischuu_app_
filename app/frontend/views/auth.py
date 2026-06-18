@@ -37,13 +37,7 @@ def _build_auth_header() -> ft.Control:
     return ft.Container(
         padding=22,
         border_radius=26,
-        gradient=ft.LinearGradient(
-            colors=[
-                "#111827",
-                "#25172B",
-                "#4C1D3F",
-            ],
-        ),
+        gradient=ft.LinearGradient(colors=IschuuColors.HEADER_GRADIENT),
         content=ft.Column(
             spacing=8,
             controls=[

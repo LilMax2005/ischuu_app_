@@ -125,12 +125,28 @@ def build_profile_view(controller: "AppController") -> ft.Control:
                         ft.Row(
                             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             controls=[
-                                ft.Text(
-                                    "Avisos de ofertas, stock y ferias presenciales",
-                                    color=IschuuColors.TEXT_MUTED,
+                                ft.Column(
+                                    spacing=3,
+                                    expand=True,
+                                    controls=[
+                                        ft.Text(
+                                            "Estado de mis pedidos",
+                                            weight=ft.FontWeight.W_600,
+                                            color=IschuuColors.TEXT,
+                                        ),
+                                        ft.Text(
+                                            "Compra confirmada, empaquetada, enviada y entregada.",
+                                            size=12,
+                                            color=IschuuColors.TEXT_MUTED,
+                                        ),
+                                    ],
                                 ),
                                 notifications_switch,
                             ],
+                        ),
+                        muted_text(
+                            "La primera vez, Android o iOS solicitará permiso para mostrar avisos.",
+                            12,
                         ),
                         ft.Row(
                             spacing=10,

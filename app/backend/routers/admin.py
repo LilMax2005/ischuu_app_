@@ -14,6 +14,7 @@ from app.backend.core.security import decode_token
 from app.backend.db import db
 from app.backend.services.email import send_email
 from app.backend.services.exporter import export_orders_to_excel
+from app.backend.services.push_notifications import send_order_status_push
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
 
@@ -376,6 +377,8 @@ async def update_order_status(
     updated_order = await db.orders.find_one(
         {"_id": oid(order_id)}
     )
+
+    await send_order_status_push(updated_order, new_status)
 
     return serialize_order(updated_order)
 

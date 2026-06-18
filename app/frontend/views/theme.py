@@ -3,32 +3,71 @@ from __future__ import annotations
 import flet as ft
 
 
+DARK_PALETTE = {
+    "BG": "#0B0F14",
+    "SURFACE": "#151A21",
+    "SURFACE_ALT": "#202733",
+    "SURFACE_SOFT": "#2A3442",
+    "PRIMARY": "#F3A7C8",
+    "PRIMARY_STRONG": "#EC4899",
+    "PRIMARY_DARK": "#BE185D",
+    "SECONDARY": "#A78BFA",
+    "CREAM": "#FFF7ED",
+    "VANILLA": "#FDE68A",
+    "SKY": "#93C5FD",
+    "SAGE": "#A7C7A1",
+    "SUCCESS": "#86EFAC",
+    "WARNING": "#FBBF24",
+    "DANGER": "#F87171",
+    "TEXT": "#F8FAFC",
+    "TEXT_MUTED": "#CBD5E1",
+    "TEXT_SOFT": "#94A3B8",
+    "ON_PRIMARY": "#FFFFFF",
+    "BORDER": "#334155",
+    "BORDER_SOFT": "#475569",
+    "HEADER_GRADIENT": ["#111827", "#25172B", "#4C1D3F"],
+    "FEATURE_GRADIENT": ["#151A21", "#2C1830", "#4C1D3F"],
+}
+
+
+LIGHT_PALETTE = {
+    "BG": "#FFF9FC",
+    "SURFACE": "#FFFFFF",
+    "SURFACE_ALT": "#FFF0F6",
+    "SURFACE_SOFT": "#F4ECFF",
+    "PRIMARY": "#B94D7F",
+    "PRIMARY_STRONG": "#CC4D88",
+    "PRIMARY_DARK": "#A83C70",
+    "SECONDARY": "#8066B5",
+    "CREAM": "#54243E",
+    "VANILLA": "#9B641D",
+    "SKY": "#4E78A5",
+    "SAGE": "#4F7A5C",
+    "SUCCESS": "#39805A",
+    "WARNING": "#A96C12",
+    "DANGER": "#C43D63",
+    "TEXT": "#3C3038",
+    "TEXT_MUTED": "#6F606A",
+    "TEXT_SOFT": "#91808B",
+    "ON_PRIMARY": "#FFFFFF",
+    "BORDER": "#E7CCD9",
+    "BORDER_SOFT": "#D8B6C7",
+    "HEADER_GRADIENT": ["#FFF8FB", "#FDE8F1", "#EDE4FA"],
+    "FEATURE_GRADIENT": ["#FFFFFF", "#FFF0F6", "#F3EBFF"],
+}
+
+
 class IschuuColors:
-    BG = "#0B0F14"
-    SURFACE = "#151A21"
-    SURFACE_ALT = "#202733"
-    SURFACE_SOFT = "#2A3442"
+    pass
 
-    PRIMARY = "#F3A7C8"
-    PRIMARY_STRONG = "#EC4899"
-    PRIMARY_DARK = "#BE185D"
-    SECONDARY = "#8B5CF6"
 
-    CREAM = "#FFF7ED"
-    VANILLA = "#FDE68A"
-    SKY = "#93C5FD"
-    SAGE = "#A7C7A1"
+def apply_palette(light_mode: bool) -> None:
+    palette = LIGHT_PALETTE if light_mode else DARK_PALETTE
+    for name, value in palette.items():
+        setattr(IschuuColors, name, value)
 
-    SUCCESS = "#86EFAC"
-    WARNING = "#FBBF24"
-    DANGER = "#F87171"
 
-    TEXT = "#F8FAFC"
-    TEXT_MUTED = "#CBD5E1"
-    TEXT_SOFT = "#94A3B8"
-
-    BORDER = "#334155"
-    BORDER_SOFT = "#475569"
+apply_palette(False)
 
 
 class IschuuSize:
@@ -39,12 +78,13 @@ class IschuuSize:
     CARD_PADDING = 16
 
 
-def app_border(color: str = IschuuColors.BORDER, width: int = 1) -> ft.Border:
+def app_border(color: str | None = None, width: int = 1) -> ft.Border:
+    border_color = color or IschuuColors.BORDER
     return ft.Border(
-        left=ft.BorderSide(width, color),
-        top=ft.BorderSide(width, color),
-        right=ft.BorderSide(width, color),
-        bottom=ft.BorderSide(width, color),
+        left=ft.BorderSide(width, border_color),
+        top=ft.BorderSide(width, border_color),
+        right=ft.BorderSide(width, border_color),
+        bottom=ft.BorderSide(width, border_color),
     )
 
 
@@ -62,7 +102,7 @@ def build_theme() -> ft.Theme:
 def primary_button_style() -> ft.ButtonStyle:
     return ft.ButtonStyle(
         bgcolor=IschuuColors.PRIMARY_STRONG,
-        color=IschuuColors.TEXT,
+        color=IschuuColors.ON_PRIMARY,
         shape=ft.RoundedRectangleBorder(radius=IschuuSize.BUTTON_RADIUS),
     )
 

@@ -11,6 +11,7 @@ from app.backend.core.config import settings
 from app.backend.core.security import decode_token
 from app.backend.db import db
 from app.backend.services.pricing import calculate_cart_totals, earned_points_for_amount
+from app.backend.services.push_notifications import send_order_status_push
 from app.backend.services.transbank import create_webpay_transaction, commit_transaction
 
 router = APIRouter(prefix="/api/v1/payments", tags=["Payments"])
@@ -433,6 +434,12 @@ async def finalize_payment(token: str, tx: dict) -> dict:
             }
         },
     )
+
+    created_order = {
+        **order,
+        "_id": result.inserted_id,
+    }
+    await send_order_status_push(created_order, "Compra realizada")
 
     return {
         "status": "AUTHORIZED",

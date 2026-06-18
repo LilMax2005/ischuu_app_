@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = ""
 
+    # Notificaciones móviles OneSignal
+    onesignal_app_id: str = ""
+    onesignal_rest_api_key: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

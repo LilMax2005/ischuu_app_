@@ -1,4 +1,5 @@
 flet[all]
+flet-onesignal>=0.4.4
 fastapi
 uvicorn[standard]
 motor

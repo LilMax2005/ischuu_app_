@@ -149,3 +149,22 @@ async def update_my_shipping_address(
         )
 
     return serialize_user(updated_user)
+
+
+@router.patch("/me/notifications")
+async def update_notification_preference(
+    payload: dict,
+    user: dict = Depends(current_user),
+):
+    enabled = bool(payload.get("enabled", True))
+
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"notifications_enabled": enabled}},
+    )
+
+    updated_user = await db.users.find_one({"_id": user["_id"]})
+    if updated_user is None:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    return serialize_user(updated_user)

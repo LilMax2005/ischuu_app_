@@ -4,6 +4,7 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import flet as ft
 import httpx
@@ -16,10 +17,16 @@ from app.frontend.views.admin import build_admin_view
 from app.frontend.views.auth import build_auth_gate
 from app.frontend.views.cart import build_cart_view
 from app.frontend.views.components import build_header, build_navigation_bar
+from app.frontend.views.help import build_help_view
 from app.frontend.views.orders import build_orders_view
 from app.frontend.views.profile import build_profile_view
 from app.frontend.views.store import build_product_card, build_store_view
-from app.frontend.views.theme import IschuuColors, build_theme, input_style
+from app.frontend.views.theme import (
+    IschuuColors,
+    apply_palette,
+    build_theme,
+    input_style,
+)
 
 CART_FILE = Path("ischuu_cart_local.json")
 PENDING_PAYMENT_FILE = Path("ischuu_pending_payment.json")
@@ -31,6 +38,12 @@ class AppController:
         self.page = page
         self.api = ApiClient(api_base_url)
         self.state = AppState()
+        self.is_light_theme = True
+        apply_palette(self.is_light_theme)
+        self.onesignal = None
+        self.push_service_ready = False
+        self.push_permission_granted = False
+        self.pending_push_route: str | None = None
 
         # Dirección de despacho
         self.shipping_address_saved = False
@@ -92,7 +105,7 @@ class AppController:
         self.admin_settings: dict[str, Any] = {}
 
         self.page.title = "Ischuu"
-        self.page.theme_mode = ft.ThemeMode.DARK
+        self.page.theme_mode = ft.ThemeMode.LIGHT
         self.page.padding = 18
         self.page.bgcolor = IschuuColors.BG
         self.page.theme = build_theme()
@@ -101,42 +114,6 @@ class AppController:
         self.body = ft.Column(spacing=16, expand=True)
         self.product_list = ft.Column(spacing=12)
         self.cart_quote_box = ft.Column(spacing=6)
-
-        self.shipping_recipient = ft.TextField(
-            label="Nombre destinatario",
-            prefix_icon=ft.Icons.PERSON_OUTLINE,
-        )
-
-        self.shipping_phone = ft.TextField(
-            label="Teléfono",
-            prefix_icon=ft.Icons.PHONE_OUTLINED,
-        )
-
-        self.shipping_region = ft.TextField(
-            label="Región",
-            value="Región Metropolitana",
-            prefix_icon=ft.Icons.MAP_OUTLINED,
-        )
-
-        self.shipping_comuna = ft.TextField(
-            label="Comuna",
-            prefix_icon=ft.Icons.LOCATION_CITY_OUTLINED,
-        )
-
-        self.shipping_street = ft.TextField(
-            label="Calle",
-            prefix_icon=ft.Icons.HOME_OUTLINED,
-        )
-
-        self.shipping_number = ft.TextField(
-            label="Número",
-            prefix_icon=ft.Icons.TAG_OUTLINED,
-        )
-
-        self.shipping_details = ft.TextField(
-            label="Referencia / Depto / Casa / Indicaciones",
-            prefix_icon=ft.Icons.NOTES_OUTLINED,
-        )
 
         self.search_field = ft.TextField(
             hint_text="Buscar producto, serie o categoría...",
@@ -167,6 +144,10 @@ class AppController:
         self.page.navigation_bar = self.navbar
         self.page.add(self.body)
 
+        self.help_category = "inicio"
+        self.help_search_query = ""
+        self.help_open_question: int | None = None
+
         self.render()
         self.run_async(self.startup_load())
 
@@ -175,6 +156,175 @@ class AppController:
             asyncio.get_event_loop().create_task(coro)
         except RuntimeError:
             asyncio.run(coro)
+
+    def _apply_theme_to_persistent_controls(self) -> None:
+        text_field_style = input_style()
+        text_fields = [
+            self.shipping_recipient,
+            self.shipping_phone,
+            self.shipping_region,
+            self.shipping_comuna,
+            self.shipping_street,
+            self.shipping_number,
+            self.shipping_details,
+            self.search_field,
+        ]
+
+        for text_field in text_fields:
+            for property_name, value in text_field_style.items():
+                setattr(text_field, property_name, value)
+
+        self.category_dropdown.bgcolor = IschuuColors.SURFACE_ALT
+        self.category_dropdown.color = IschuuColors.TEXT
+        self.category_dropdown.border_color = IschuuColors.BORDER
+        self.category_dropdown.focused_border_color = IschuuColors.PRIMARY_STRONG
+        self.category_dropdown.label_style = ft.TextStyle(color=IschuuColors.TEXT_MUTED)
+
+    def toggle_theme(self) -> None:
+        self.is_light_theme = not self.is_light_theme
+        apply_palette(self.is_light_theme)
+
+        self.page.theme_mode = (
+            ft.ThemeMode.LIGHT if self.is_light_theme else ft.ThemeMode.DARK
+        )
+        self.page.bgcolor = IschuuColors.BG
+        self.page.theme = build_theme()
+        self._apply_theme_to_persistent_controls()
+        self.render()
+
+    def _is_mobile_platform(self) -> bool:
+        platform = str(getattr(self.page, "platform", "") or "").lower()
+        return "android" in platform or "ios" in platform
+
+    def on_push_notification_click(self, _event) -> None:
+        self.pending_push_route = "orders"
+
+        if self.state.current_user is None:
+            return
+
+        self.current_section = 2
+        self.pending_push_route = None
+        self.run_async(self.load_orders())
+        self.render()
+
+    def on_push_notification_foreground(self, _event) -> None:
+        if self.state.current_user is not None:
+            self.run_async(self.load_orders())
+
+    async def setup_push_notifications(self) -> bool:
+        if self.onesignal is not None:
+            return True
+
+        if not self._is_mobile_platform():
+            return False
+
+        try:
+            config = await self.api.get_notification_config()
+            app_id = str(config.get("app_id", "")).strip()
+            if not config.get("enabled") or not app_id:
+                return False
+
+            import flet_onesignal as fos
+
+            self.onesignal = fos.OneSignal(
+                app_id=app_id,
+                on_notification_click=self.on_push_notification_click,
+                on_notification_foreground=self.on_push_notification_foreground,
+            )
+            self.page.services.append(self.onesignal)
+            self.push_service_ready = True
+            self.page.update()
+            return True
+        except Exception as exc:
+            print(f"Notificaciones móviles no disponibles: {exc}")
+            self.onesignal = None
+            self.push_service_ready = False
+            return False
+
+    async def activate_push_for_current_user(self) -> None:
+        user = self.state.current_user
+        if user is None:
+            return
+
+        if self.onesignal is None and not await self.setup_push_notifications():
+            return
+
+        try:
+            await self.onesignal.login(str(user.id))
+            await self.onesignal.user.set_language("es")
+
+            if bool(user.notifications_enabled):
+                granted = await self.onesignal.notifications.request_permission(
+                    fallback_to_settings=True
+                )
+                self.push_permission_granted = bool(granted)
+                if granted:
+                    await self.onesignal.user.opt_in_push()
+            else:
+                await self.onesignal.user.opt_out_push()
+                self.push_permission_granted = False
+        except Exception as exc:
+            print(f"No se pudo vincular el teléfono a las notificaciones: {exc}")
+
+    async def disconnect_push_user(self) -> None:
+        if self.onesignal is None:
+            return
+
+        try:
+            await self.onesignal.logout()
+        except Exception as exc:
+            print(f"No se pudo cerrar la sesión de notificaciones: {exc}")
+
+    def handle_save_profile(self, notifications_enabled: bool) -> None:
+        self.run_async(
+            self.save_notification_preference(bool(notifications_enabled))
+        )
+
+    async def save_notification_preference(self, enabled: bool) -> None:
+        try:
+            effective_enabled = enabled
+
+            if enabled and self.onesignal is None:
+                await self.setup_push_notifications()
+
+            if self.onesignal is not None:
+                if enabled:
+                    granted = await self.onesignal.notifications.request_permission(
+                        fallback_to_settings=True
+                    )
+                    self.push_permission_granted = bool(granted)
+                    effective_enabled = bool(granted)
+                    if granted:
+                        await self.onesignal.login(str(self.state.current_user.id))
+                        await self.onesignal.user.opt_in_push()
+                else:
+                    await self.onesignal.user.opt_out_push()
+                    self.push_permission_granted = False
+
+            user_data = await self.api.update_notification_preference(
+                effective_enabled
+            )
+            self.state.current_user = self.user_from_dict(user_data)
+
+            if enabled and not effective_enabled:
+                self.show_message(
+                    "Debes autorizar las notificaciones en los ajustes del teléfono.",
+                    error=True,
+                )
+            else:
+                message = (
+                    "Notificaciones de pedidos activadas."
+                    if effective_enabled
+                    else "Notificaciones de pedidos desactivadas."
+                )
+                self.show_message(message)
+
+            self.render()
+        except Exception as exc:
+            self.show_message(
+                f"No se pudo guardar la preferencia de notificaciones: {exc}",
+                error=True,
+            )
 
     def apply_shipping_address_to_fields(self, data: dict | None) -> None:
         data = data or {}
@@ -189,6 +339,60 @@ class AppController:
 
         self.shipping_address_saved = self.shipping_address_is_complete()
         self.shipping_address_editing = not self.shipping_address_saved
+
+    def select_help_category(self, category: str) -> None:
+        self.help_category = category or "inicio"
+        self.help_search_query = ""
+        self.help_open_question = None
+        self.render()
+
+    def toggle_help_question(self, question_index: int) -> None:
+        if self.help_open_question == question_index:
+            self.help_open_question = None
+        else:
+            self.help_open_question = question_index
+
+        self.render()
+
+    def on_help_search(self, e) -> None:
+        self.set_help_search(e.control.value)
+
+    def set_help_search(self, query: str | None) -> None:
+        self.help_search_query = str(query or "").strip()
+        if self.help_search_query:
+            self.help_category = "preguntas"
+        self.help_open_question = None
+        self.render()
+
+    def clear_help_search(self) -> None:
+        self.help_search_query = ""
+        self.help_open_question = None
+        self.render()
+
+    def open_orders_from_help(self) -> None:
+        if not self.state.current_user:
+            self.show_message(
+                "Debes iniciar sesión para revisar tus pedidos.",
+                error=True,
+            )
+            return
+
+        self.current_section = 2
+        self.run_async(self.load_orders())
+        self.render()
+
+    def open_help_whatsapp(self) -> None:
+        phone = "56961934594"
+        message = "Hola, necesito ayuda con la aplicación Ischuu."
+        url = f"https://wa.me/{phone}?text={quote(message)}"
+
+        self.page.launch_url(url)
+
+    def open_help_email(self) -> None:
+        email = "soporte@ischuu.cl"
+        subject = "Solicitud de ayuda - Ischuu"
+
+        self.page.launch_url(f"mailto:{email}?subject={quote(subject)}")
 
     def shipping_address_payload(self) -> dict:
         return {
@@ -245,7 +449,7 @@ class AppController:
 
     def show_message(self, message: str, error: bool = False) -> None:
         self.page.snack_bar = ft.SnackBar(
-            content=ft.Text(message, color=IschuuColors.TEXT),
+            content=ft.Text(message, color=IschuuColors.ON_PRIMARY),
             bgcolor=IschuuColors.DANGER if error else IschuuColors.SUCCESS,
             open=True,
         )
@@ -290,7 +494,7 @@ class AppController:
         return is_admin or email == "admin@ischuu.cl"
 
     def render(self) -> None:
-        if self.current_section == 4 and not self.is_admin():
+        if self.current_section == 5 and not self.is_admin():
             self.current_section = 0
 
         self.body.controls.clear()
@@ -439,12 +643,18 @@ class AppController:
 
             return build_profile_view(self)
 
-        if self.current_section == 4 and self.is_admin():
+        if self.current_section == 4:
+            return build_help_view(self)
+
+        if self.current_section == 5 and self.is_admin():
             return build_admin_view(self)
 
+        self.current_section = 0
         return build_store_view(self)
 
     async def startup_load(self) -> None:
+        await self.setup_push_notifications()
+
         try:
             await self.load_products()
             self.load_cart_from_file()
@@ -494,6 +704,12 @@ class AppController:
         try:
             user_data = await self.api.get_me()
             self.state.current_user = self.user_from_dict(user_data)
+
+            await self.activate_push_for_current_user()
+
+            if self.pending_push_route == "orders":
+                self.current_section = 2
+                self.pending_push_route = None
         except Exception:
             pass
 
@@ -817,6 +1033,7 @@ class AppController:
             self.show_message(f"No se pudo cambiar contraseña: {exc}", error=True)
 
     def handle_logout(self) -> None:
+        self.run_async(self.disconnect_push_user())
         self.state.current_user = None
         self.state.orders = []
         self.admin_summary = {}
@@ -1167,18 +1384,30 @@ class AppController:
         self.page.update()
 
     def on_nav_change(self, e) -> None:
-        self.current_section = e.control.selected_index
+        selected_index = int(e.control.selected_index)
+
+        max_index = 5 if self.is_admin() else 4
+
+        if selected_index < 0 or selected_index > max_index:
+            self.current_section = 0
+        else:
+            self.current_section = selected_index
 
         if self.current_section == 1:
             self.run_async(self.refresh_cart_quote())
 
-        if self.current_section == 2 and self.state.current_user:
-            self.run_async(self.load_orders())
+        elif self.current_section == 2:
+            if self.state.current_user:
+                self.run_async(self.load_orders())
 
-        if self.current_section == 3 and self.state.current_user:
-            self.run_async(self.refresh_me())
+        elif self.current_section == 3:
+            if self.state.current_user:
+                self.run_async(self.refresh_me())
 
-        if self.current_section == 4 and self.is_admin():
-            self.run_async(self.load_admin_data())
+        elif self.current_section == 5:
+            if self.is_admin():
+                self.run_async(self.load_admin_data())
+            else:
+                self.current_section = 0
 
         self.render()

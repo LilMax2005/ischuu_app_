@@ -1,511 +1,228 @@
 # Ischuu App
 
-Aplicación de tienda online para **Ischuu**, enfocada en la venta de productos tipo **Blind Box**, figuras coleccionables, anime, videojuegos y cultura pop.
+Aplicación de comercio electrónico para **Ischuu**, una tienda de blind boxes, figuras coleccionables y productos de cultura pop. Incluye una interfaz multiplataforma en Flet, una API REST en FastAPI y un panel de administración.
 
-El proyecto permite gestionar productos, usuarios, carrito de compras, pagos en línea, dirección de despacho, sistema de puntos, descuentos, seguimiento de pedidos y administración interna.
+[Backend desplegado](https://ischuu-app.onrender.com) · [Documentación de la API](https://ischuu-app.onrender.com/docs)
 
----
+> El proyecto utiliza Webpay en ambiente de integración. No debe tratarse como una tienda en producción sin revisar primero la configuración de seguridad indicada al final de este documento.
 
-## 1. Descripción del proyecto
+## Funcionalidades
 
-**Ischuu App** es una solución desarrollada para digitalizar y fortalecer el proceso de venta de la tienda Ischuu, la cual inicialmente operaba principalmente mediante redes sociales como Instagram y TikTok.
+| Clientes | Administración |
+| --- | --- |
+| Registro, inicio de sesión y recuperación de contraseña | Resumen de ventas, pedidos, usuarios y stock |
+| Catálogo con búsqueda y filtro por categoría | Creación, edición y eliminación de productos |
+| Carrito con cálculo de envío y descuentos | Ajuste de inventario y permisos de usuarios |
+| Dirección de despacho persistente | Actualización del seguimiento de pedidos |
+| Pago con Webpay Plus | Exportación de pedidos a Excel |
+| Puntos y descuentos por preferencias | Configuración de enlaces sociales |
+| Historial y seguimiento de pedidos | Avisos por correo y notificaciones push |
 
-La aplicación busca centralizar el flujo de compra en una plataforma propia, permitiendo que los clientes puedan:
+## Arquitectura
 
-* Ver productos disponibles.
-* Agregar productos al carrito.
-* Guardar dirección de despacho.
-* Aplicar puntos y descuentos.
-* Pagar mediante Webpay.
-* Revisar el seguimiento de sus pedidos.
-
-Además, el sistema incorpora una vista de administrador para gestionar productos, stock, usuarios y estados de pedidos.
-
----
-
-## 2. Objetivo del proyecto
-
-El objetivo principal es desarrollar una aplicación escalable y funcional que permita a Ischuu mejorar su proceso de venta online, fidelizar clientes y entregar una experiencia de compra más confiable y ordenada.
-
-### Objetivos específicos
-
-* Implementar una tienda online con catálogo de productos.
-* Permitir registro e inicio de sesión de usuarios.
-* Gestionar carrito de compras.
-* Integrar pagos con Webpay Plus.
-* Implementar sistema de puntos y descuentos.
-* Permitir guardar dirección de despacho por usuario.
-* Crear pedidos automáticamente después de un pago autorizado.
-* Permitir seguimiento de pedidos.
-* Crear una vista de administrador.
-* Desplegar el backend en la nube.
-* Permitir pruebas desde dispositivo móvil.
-
----
-
-## 3. Tecnologías utilizadas
-
-### Frontend
-
-* **Python**
-* **Flet**
-
-Flet fue utilizado para construir la interfaz gráfica de la aplicación, permitiendo ejecutar la app en escritorio, web y dispositivos móviles.
-
-### Backend
-
-* **Python**
-* **FastAPI**
-* **Uvicorn**
-
-FastAPI fue utilizado para crear una API REST encargada de gestionar productos, usuarios, autenticación, pagos, pedidos, dirección de despacho y administración.
-
-### Base de datos
-
-* **MongoDB Atlas**
-* **Motor**
-* **PyMongo**
-
-MongoDB Atlas fue utilizado como base de datos en la nube, permitiendo persistencia de productos, usuarios, pedidos, pagos, direcciones, puntos y preferencias.
-
-### Pagos
-
-* **Webpay Plus**
-* **Transbank SDK**
-
-Se utiliza Webpay Plus en ambiente de integración para procesar pagos online en pesos chilenos.
-
-### Despliegue
-
-* **Render**
-
-Render fue utilizado para desplegar el backend FastAPI y exponerlo mediante una URL pública HTTPS.
-
-### Correos
-
-* **SMTP Gmail**
-
-Se utiliza SMTP para enviar correos de actualización de pedidos. Para producción se recomienda usar un proveedor transaccional como Brevo, SendGrid, Mailgun o Amazon SES.
-
-### Empaquetado
-
-* **Flet build APK**
-* **PyInstaller**
-
-Flet se utiliza para generar APK Android. PyInstaller puede utilizarse para empaquetar la app de escritorio en Windows.
-
----
-
-## 4. Arquitectura del sistema
-
-La aplicación utiliza una arquitectura cliente-servidor.
-
-```text
-Cliente Flet
-    ↓
-Backend FastAPI en Render
-    ↓
-MongoDB Atlas
-    ↓
-Servicios externos: Webpay, SMTP
+```mermaid
+flowchart LR
+    F["Cliente Flet<br/>Windows, Android o iOS"] -->|HTTPS / JSON| A["API FastAPI<br/>Render"]
+    A --> M[(MongoDB Atlas)]
+    A --> W["Webpay Plus"]
+    A --> S["SMTP"]
+    A --> O["OneSignal"]
 ```
 
-### Componentes principales
+### Tecnologías principales
 
-* **Frontend Flet:** interfaz para clientes y administradores.
-* **Backend FastAPI:** API REST para lógica de negocio.
-* **MongoDB Atlas:** almacenamiento persistente.
-* **Webpay:** procesamiento de pagos.
-* **Render:** despliegue del backend.
-* **SMTP:** envío de notificaciones por correo.
+- **Interfaz:** Python y Flet.
+- **API:** FastAPI y Uvicorn.
+- **Persistencia:** MongoDB, Motor y PyMongo.
+- **Autenticación:** JWT y Argon2.
+- **Pagos:** Transbank SDK para Webpay Plus.
+- **Integraciones:** SMTP para correos y OneSignal para notificaciones push.
+- **Distribución:** Flet Build para Android y PyInstaller para Windows.
 
----
+## Puesta en marcha
 
-## 5. Funcionalidades principales
+### Requisitos
 
-### Usuario cliente
+- Python 3.11.
+- Una instancia de MongoDB Atlas accesible.
+- PowerShell en Windows para los comandos de esta guía.
+- Git, solo si vas a clonar o versionar el proyecto.
 
-* Registro de usuario.
-* Inicio de sesión.
-* Visualización de catálogo.
-* Búsqueda y filtrado de productos.
-* Agregar productos al carrito.
-* Guardar dirección de despacho.
-* Modificar dirección de despacho.
-* Usar puntos disponibles.
-* Pagar con Webpay.
-* Ver pedidos pagados.
-* Revisar seguimiento del pedido.
-* Consultar puntos ganados.
+### 1. Preparar el entorno
 
-### Usuario administrador
-
-* Acceso a panel administrador.
-* Visualización de estadísticas.
-* Gestión de productos.
-* Gestión de stock.
-* Gestión de usuarios.
-* Revisión de pedidos.
-* Actualización de estados de pedido.
-* Envío de correos al cambiar estado.
-* Exportación de pedidos.
-* Configuración de redes sociales.
-
-### Estados de pedido
-
-Los pedidos pueden tener los siguientes estados:
-
-```text
-Compra realizada
-Artículo empaquetado
-Artículo enviado
-Artículo entregado
-```
-
----
-
-## 6. Sistema de puntos
-
-El sistema de puntos fue implementado para fidelización de clientes.
-
-La regla utilizada es:
-
-```text
-Cada $500 de compra = 1 punto
-1 punto = $50 de descuento
-```
-
-Ejemplo:
-
-```text
-Compra: $12.000
-Puntos ganados: 24
-Valor equivalente futuro: $1.200 de descuento
-```
-
-Los puntos pueden utilizarse en futuras compras mediante el switch de uso de puntos dentro del carrito.
-
----
-
-## 7. Dirección de despacho
-
-Cada usuario puede registrar su propia dirección de despacho.
-
-La dirección incluye:
-
-* Nombre del destinatario.
-* Teléfono.
-* Región.
-* Comuna.
-* Calle.
-* Número.
-* Referencias o indicaciones.
-
-La dirección se guarda en el usuario y, al momento de realizar una compra, se copia al pedido. Esto permite que los pedidos antiguos mantengan la dirección utilizada en esa compra, aunque el usuario modifique su dirección posteriormente.
-
----
-
-## 8. Flujo de compra
-
-El flujo general de compra es el siguiente:
-
-```text
-1. Usuario inicia sesión.
-2. Usuario revisa catálogo.
-3. Usuario agrega productos al carrito.
-4. Usuario ingresa o confirma dirección de despacho.
-5. Backend calcula subtotal, envío, descuentos y total.
-6. Usuario paga con Webpay.
-7. Webpay retorna al backend.
-8. Si el pago es autorizado, se crea el pedido.
-9. Se descuenta stock.
-10. Se asignan puntos.
-11. El pedido aparece en seguimiento.
-12. El administrador puede actualizar el estado.
-13. El usuario recibe notificación por correo.
-```
-
-El pedido solo se crea cuando el pago es autorizado por Webpay.
-
----
-
-## 9. Estructura del proyecto
-
-Estructura general del sistema:
-
-```text
-ischuu_app_
-│
-├── app/
-│   ├── backend/
-│   │   ├── core/
-│   │   │   ├── config.py
-│   │   │   └── security.py
-│   │   │
-│   │   ├── routers/
-│   │   │   ├── admin.py
-│   │   │   ├── auth.py
-│   │   │   ├── orders.py
-│   │   │   ├── payments.py
-│   │   │   ├── products.py
-│   │   │   └── password.py
-│   │   │
-│   │   ├── services/
-│   │   │   ├── catalog.py
-│   │   │   ├── email.py
-│   │   │   ├── pricing.py
-│   │   │   ├── shipping.py
-│   │   │   └── transbank.py
-│   │   │
-│   │   ├── db.py
-│   │   └── main.py
-│   │
-│   └── frontend/
-│       ├── controllers/
-│       │   └── app_controller.py
-│       │
-│       ├── models/
-│       │   ├── entities.py
-│       │   └── state.py
-│       │
-│       ├── services/
-│       │   └── api_client.py
-│       │
-│       └── views/
-│           ├── admin.py
-│           ├── auth.py
-│           ├── cart.py
-│           ├── components.py
-│           ├── orders.py
-│           ├── products.py
-│           ├── profile.py
-│           └── theme.py
-│
-├── main.py
-├── mobile_main.py
-├── requirements.txt
-├── runtime.txt
-├── README.md
-└── .env
-```
-
----
-
-## 10. Variables de entorno
-
-El proyecto utiliza variables de entorno para separar configuración sensible del código.
-
-Crear un archivo `.env` en la raíz del proyecto.
-
-Ejemplo:
-
-```env
-APP_NAME=Ischuu
-SECRET_KEY=CAMBIAR_SECRET_KEY
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-MONGODB_URL=mongodb+srv://USUARIO:PASSWORD@cluster.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DATABASE=ischuu
-
-API_BASE_URL=http://127.0.0.1:8000
-
-TBK_ENV=integration
-TBK_COMMERCE_CODE=597055555532
-TBK_API_KEY=API_KEY_DE_INTEGRACION
-
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=correo@gmail.com
-SMTP_PASSWORD=clave_de_aplicacion
-SMTP_FROM=correo@gmail.com
-```
-
-Para Render, la variable `API_BASE_URL` debe ser:
-
-```env
-API_BASE_URL=https://ischuu-app.onrender.com
-```
-
-Para desarrollo local puede ser:
-
-```env
-API_BASE_URL=http://127.0.0.1:8000
-```
-
----
-
-## 11. Instalación local
-
-### Requisitos previos
-
-* Python 3.11 recomendado.
-* Git.
-* Cuenta de MongoDB Atlas.
-* Entorno virtual `.venv`.
-
-### Crear entorno virtual
-
-Desde la raíz del proyecto:
+Desde la raíz del repositorio:
 
 ```powershell
 py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-Activar entorno virtual:
+### 2. Configurar las variables de entorno
+
+Crea un archivo `.env` en la raíz. El repositorio ya ignora este archivo para evitar publicar credenciales.
+
+```env
+APP_NAME=Ischuu
+SECRET_KEY=reemplazar-por-una-clave-larga-y-aleatoria
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+MONGODB_URL=mongodb+srv://usuario:password@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DATABASE=ischuu
+
+# URL pública del backend; también se usa para el retorno de Webpay.
+API_BASE_URL=http://127.0.0.1:8000
+
+TBK_ENV=integration
+TBK_COMMERCE_CODE=
+TBK_API_KEY=
+
+# Opcionales: correo
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=
+
+# Opcionales: notificaciones móviles
+ONESIGNAL_APP_ID=
+ONESIGNAL_REST_API_KEY=
+```
+
+`MONGODB_URL` es la única variable sin valor predeterminado y debe existir para que el backend pueda iniciar. En modo `integration`, el SDK de Transbank utiliza sus credenciales de prueba; las credenciales propias se requieren al cambiar `TBK_ENV` a `production`.
+
+### 3. Ejecutar la aplicación
+
+#### Opción rápida: interfaz conectada al backend desplegado
+
+```powershell
+python main.py
+```
+
+Tanto `main.py` como `mobile_main.py` apuntan actualmente a `https://ischuu-app.onrender.com` mediante la constante `API_BASE_URL` definida en cada archivo.
+
+#### Desarrollo local del backend
+
+Inicia la API en una terminal:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
+uvicorn app.backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Actualizar pip:
+Comprueba que responde en:
 
-```powershell
-python -m pip install --upgrade pip
-```
+- API: <https://ischuu-app.onrender.com>
+- Salud: <https://ischuu-app.onrender.com/health>
+- Swagger UI: <https://ischuu-app.onrender.com/docs>
 
-Instalar dependencias:
-
-```powershell
-pip install -r requirements.txt
-```
-
-Ejecutar aplicación local:
-
-```powershell
-python main.py
-```
-
----
-
-## 12. Ejecución local
-
-El archivo `main.py` levanta el backend local y la aplicación Flet de escritorio.
-
-```powershell
-python main.py
-```
-
-Este modo utiliza normalmente:
-
-```text
-http://127.0.0.1:8000
-```
-
-La documentación local del backend se puede revisar en:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
----
-
-## 13. Ejecución móvil con Render
-
-Para ejecutar la aplicación en celular usando el backend desplegado en Render, utilizar `mobile_main.py`.
-
-Contenido recomendado de `mobile_main.py`:
+Para conectar Flet a esta API local, cambia temporalmente la constante de `main.py`:
 
 ```python
-from __future__ import annotations
-
-import flet as ft
-
-from app.frontend.controllers.app_controller import AppController
-
-
 API_BASE_URL = "https://ischuu-app.onrender.com"
-
-
-def main(page: ft.Page) -> None:
-    AppController(
-        page,
-        api_base_url=API_BASE_URL,
-    )
-
-
-if __name__ == "__main__":
-    ft.run(main)
 ```
 
-Ejecutar en Android con Flet:
+Después abre otra terminal y ejecuta:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python main.py
+```
+
+> La variable `API_BASE_URL` del archivo `.env` configura las URLs generadas por el **backend**, como el retorno de Webpay. No cambia la URL utilizada por el cliente Flet; esa URL está definida en `main.py` y `mobile_main.py`.
+
+## Reglas de negocio vigentes
+
+Estas reglas proceden del módulo utilizado por pagos, `app/backend/services/pricing.py`:
+
+| Regla | Valor actual |
+| --- | ---: |
+| Envío | $3.000 CLP |
+| Envío gratis | Desde $25.000 CLP de subtotal |
+| Acumulación | 1 punto por cada $500 CLP pagados en productos |
+| Valor de canje | 1 punto = $25 CLP |
+| Canje mínimo | 10 puntos |
+| Tope del descuento por puntos | 20 % del subtotal |
+| Descuento por categorías preferidas | 5 %, con tope de $5.000 CLP |
+
+El envío no genera puntos. El pedido, el descuento de stock y la actualización del saldo de puntos ocurren solamente después de que Webpay devuelve una transacción autorizada.
+
+El seguimiento administrativo utiliza estos estados:
+
+1. `Compra realizada`
+2. `Artículo empaquetado`
+3. `Artículo enviado`
+4. `Artículo entregado`
+
+## API
+
+La API usa el prefijo `/api/v1` y agrupa sus endpoints en:
+
+- `/auth`: registro, acceso, perfil, despacho y preferencias de notificación.
+- `/password`: recuperación y cambio de contraseña.
+- `/products`: catálogo público.
+- `/payments`: cotización, inicio, retorno y consulta de pagos Webpay.
+- `/orders`: pedidos del usuario.
+- `/admin`: usuarios, productos, stock, pedidos, exportación y ajustes.
+- `/notifications`: configuración pública del proveedor push.
+
+La especificación OpenAPI completa está disponible en `/docs` cuando el backend está en ejecución.
+
+## Notificaciones y correo
+
+### OneSignal
+
+Para habilitar notificaciones móviles de cambios de pedido:
+
+1. Crea una aplicación en OneSignal.
+2. Configura FCM para Android y APNs si distribuirás la app en iOS.
+3. Define `ONESIGNAL_APP_ID` y `ONESIGNAL_REST_API_KEY` únicamente en el entorno del backend.
+4. Vuelve a instalar dependencias y recompila la aplicación móvil.
+
+La API entrega al cliente solo el App ID público mediante `/api/v1/notifications/config`. La REST API key permanece en el servidor. Cada usuario puede activar o desactivar los avisos desde **Perfil → Notificaciones**.
+
+### SMTP
+
+Si `SMTP_HOST`, `SMTP_USER` y `SMTP_PASSWORD` están configurados, el backend envía un correo cuando cambia el estado de un pedido. Para Gmail debes utilizar una contraseña de aplicación. Si SMTP no está configurado, el contenido del correo se registra en la salida del backend y la operación continúa.
+
+## Compilación y distribución
+
+### Probar en un dispositivo Android
 
 ```powershell
 flet run --android mobile_main.py
 ```
 
-Ejecutar en iOS con Flet:
+Este modo es apropiado para desarrollo y mantiene una sesión conectada al equipo.
+
+### Generar una APK
 
 ```powershell
-flet run --ios mobile_main.py
-```
-
-Este modo depende del PC mientras se realizan pruebas.
-
----
-
-## 14. Generar APK Android
-
-Para que la app funcione en el celular sin depender del PC, se debe generar una APK.
-
-### Paso 1: respaldar main.py
-
-```powershell
-copy main.py main_desktop_backup.py
-```
-
-### Paso 2: usar mobile_main.py como main.py temporal
-
-```powershell
-copy mobile_main.py main.py
-```
-
-### Paso 3: limpiar builds anteriores
-
-```powershell
-Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue
-```
-
-### Paso 4: generar APK
-
-```powershell
+python -m pip install -r requirements.txt
 flet build apk
 ```
 
-### Paso 5: restaurar main.py original
-
-```powershell
-copy main_desktop_backup.py main.py
-```
-
-### Paso 6: buscar APK generada
+Para localizar el artefacto generado:
 
 ```powershell
 Get-ChildItem -Recurse -Filter *.apk
 ```
 
-La APK puede quedar en rutas como:
+Antes de compilar, confirma que `API_BASE_URL` en `main.py` apunta al backend que utilizará la APK.
 
-```text
-build\apk\
+### Generar un ejecutable de Windows
+
+```powershell
+.\scripts\build_windows.ps1
 ```
 
-o:
+El script crea el entorno virtual si hace falta, instala PyInstaller y deja el ejecutable en `dist/`.
 
-```text
-build\flutter\build\app\outputs\flutter-apk\
-```
+## Despliegue del backend en Render
 
-Luego se copia el archivo APK al celular y se instala manualmente.
-
----
-
-## 15. Despliegue en Render
-
-El backend se despliega en Render como servicio web.
-
-### Configuración recomendada
+Configuración base del servicio web:
 
 ```text
 Runtime: Python
@@ -513,358 +230,83 @@ Build Command: pip install -r requirements.txt
 Start Command: uvicorn app.backend.main:app --host 0.0.0.0 --port $PORT
 ```
 
-### Archivo runtime.txt
-
-Para fijar la versión de Python en Render:
-
-```txt
-python-3.11.9
-```
-
-### Variables importantes en Render
+Configura en Render las mismas variables del `.env` y usa la URL pública en `API_BASE_URL`. Para el despliegue actual:
 
 ```env
 API_BASE_URL=https://ischuu-app.onrender.com
-MONGODB_URL=URL_DE_MONGODB_ATLAS
-MONGODB_DATABASE=ischuu
-SECRET_KEY=CLAVE_SECRETA
-TBK_ENV=integration
-TBK_COMMERCE_CODE=CODIGO_COMERCIO
-TBK_API_KEY=API_KEY_TRANSBANK
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=CORREO
-SMTP_PASSWORD=CLAVE_APLICACION
-SMTP_FROM=CORREO
 ```
 
-Después de modificar variables de entorno en Render, se recomienda ejecutar:
-
-```text
-Manual Deploy → Clear build cache & deploy
-```
-
----
-
-## 16. Webpay
-
-La integración con Webpay Plus funciona mediante el backend.
-
-El backend genera una transacción con:
-
-* Monto total.
-* Orden de compra.
-* Token Webpay.
-* URL de retorno.
-
-La URL de retorno debe apuntar al backend público de Render:
+El retorno esperado de Webpay será:
 
 ```text
 https://ischuu-app.onrender.com/api/v1/payments/webpay/return
 ```
 
-No debe apuntar a:
+`runtime.txt` fija Python 3.11.9 para este despliegue.
+
+## Estructura del repositorio
 
 ```text
-http://127.0.0.1:8000
+ischuu_app_/
+├── app/
+│   ├── backend/
+│   │   ├── core/          # Configuración y seguridad
+│   │   ├── routers/       # Endpoints FastAPI
+│   │   ├── services/      # Pagos, precios, correo, push y exportación
+│   │   ├── db.py          # Cliente MongoDB
+│   │   └── main.py        # Aplicación FastAPI
+│   └── frontend/
+│       ├── controllers/   # Estado y coordinación de la interfaz
+│       ├── models/        # Entidades del cliente
+│       ├── services/      # Cliente HTTP
+│       └── views/         # Tienda, carrito, pedidos, perfil y admin
+├── scripts/
+│   └── build_windows.ps1
+├── main.py                # Entrada Flet de escritorio
+├── mobile_main.py         # Entrada Flet para pruebas móviles
+├── docker-compose.yml     # MongoDB local de apoyo
+├── requirements.txt
+└── runtime.txt
 ```
 
-Si Webpay retorna a `127.0.0.1`, revisar:
+La carpeta `build/` contiene archivos generados por Flet y no es código fuente principal.
 
-* Variable `API_BASE_URL` en Render.
-* Archivo `config.py`.
-* Archivo `payments.py`.
-* Transacciones pendientes antiguas.
-* APK compilada con URL antigua.
+## Solución de problemas
 
----
+### El backend no inicia y pide `MONGODB_URL`
 
-## 17. Correos SMTP
+Comprueba que `.env` esté en la raíz y que la URL de Atlas sea válida. Si Atlas restringe las conexiones por IP, autoriza la dirección desde la que se ejecuta el backend.
 
-El sistema puede enviar correos cuando el administrador cambia el estado de un pedido.
+### Webpay intenta volver a `127.0.0.1`
 
-El correo incluye:
+La variable `API_BASE_URL` del backend está apuntando al entorno local. En Render debe contener la URL HTTPS pública. Reinicia o vuelve a desplegar el servicio después de cambiarla.
 
-* Número de seguimiento.
-* Estado anterior.
-* Estado nuevo.
-* Fecha y hora de actualización.
-* Dirección de despacho.
-* Datos del pedido.
+### La aplicación móvil muestra 404 o no conecta
 
-Para Gmail se necesita una clave de aplicación, no la contraseña normal de la cuenta.
+Revisa la constante `API_BASE_URL` con la que se compiló la app. Debe ser el origen del backend, sin `/docs` ni `/api/v1`. Desinstala la APK anterior antes de probar una compilación nueva si el dispositivo conserva una versión antigua.
 
-Ejemplo de configuración:
+### No llegan correos
 
-```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=correo@gmail.com
-SMTP_PASSWORD=clave_de_aplicacion
-SMTP_FROM=correo@gmail.com
-```
+Verifica las variables SMTP y revisa la salida del backend. Gmail puede rechazar contraseñas normales o alcanzar límites diarios; para producción conviene utilizar un proveedor de correo transaccional.
 
-Si aparece el error:
+### No llegan notificaciones push
 
-```text
-Daily user sending limit exceeded
-```
+Confirma la configuración de FCM/APNs en OneSignal, las dos variables del backend, el permiso del sistema operativo y la preferencia del usuario en su perfil.
 
-significa que Gmail alcanzó el límite diario de envío. Para producción se recomienda usar Brevo, SendGrid, Mailgun o Amazon SES.
+## Notas de seguridad y desarrollo
 
----
+- Cambia `SECRET_KEY` en cualquier entorno compartido o de producción.
+- El backend crea un administrador inicial con credenciales definidas directamente en `app/backend/main.py`. Sustituye ese mecanismo y rota la cuenta antes de publicar el servicio.
+- CORS permite actualmente cualquier origen. Restringe `allow_origins` antes de producción.
+- `app/backend/db.py` fuerza conexiones MongoDB con TLS; MongoDB Atlas es la opción local más directa. El servicio de `docker-compose.yml` requerirá ajustar esa configuración para aceptar MongoDB sin TLS.
+- Existen dos módulos de precios. El flujo de pagos importa `app/backend/services/pricing.py`; evita editar `app/backend/pricing.py` pensando que afectará el checkout.
+- El repositorio no incluye todavía una suite automatizada de pruebas. Valida al menos registro, carrito, pago, stock, puntos, seguimiento, correo y push antes de una entrega.
 
-## 18. Comandos útiles
+## Autores
 
-### Ejecutar local
+- **Matías Alarcón** — jefe de proyecto.
+- **Máximo Lorca** — desarrollador.
 
-```powershell
-python main.py
-```
+## Licencia
 
-### Ejecutar móvil con Render
-
-```powershell
-flet run --android mobile_main.py
-```
-
-### Generar APK
-
-```powershell
-flet build apk
-```
-
-### Buscar APK
-
-```powershell
-Get-ChildItem -Recurse -Filter *.apk
-```
-
-### Instalar dependencias
-
-```powershell
-pip install -r requirements.txt
-```
-
-### Subir cambios a GitHub
-
-```powershell
-git add .
-git commit -m "Update Ischuu App"
-git push
-```
-
-### Ver rutas en Render
-
-```text
-https://ischuu-app.onrender.com/docs
-```
-
-### Ver productos desde navegador
-
-```text
-https://ischuu-app.onrender.com/api/v1/products
-```
-
----
-
-## 19. Solución de problemas frecuentes
-
-### Error: 127.0.0.1 rechazó la conexión
-
-Causa probable:
-
-Webpay o la app móvil están usando una URL local.
-
-Solución:
-
-Configurar:
-
-```env
-API_BASE_URL=https://ischuu-app.onrender.com
-```
-
-en Render y recompilar la APK usando `mobile_main.py`.
-
----
-
-### Error: HTTP Error 404 Not Found en celular
-
-Causa probable:
-
-La app móvil está usando mal la URL base.
-
-La URL correcta debe ser:
-
-```text
-https://ischuu-app.onrender.com
-```
-
-No usar:
-
-```text
-https://ischuu-app.onrender.com/docs
-https://ischuu-app.onrender.com/api/v1
-http://127.0.0.1:8000
-```
-
----
-
-### Error: Gmail Daily user sending limit exceeded
-
-Causa:
-
-Gmail alcanzó el límite diario de envío.
-
-Solución:
-
-Esperar el reinicio del límite o usar un proveedor transaccional.
-
----
-
-### Error: MongoDB SSL handshake failed en Render
-
-Posibles causas:
-
-* Versión de Python no compatible.
-* Falta `runtime.txt`.
-* URL de MongoDB mal configurada.
-* IP no permitida en MongoDB Atlas.
-
-Solución:
-
-Usar `runtime.txt`:
-
-```txt
-python-3.11.9
-```
-
-Permitir acceso en MongoDB Atlas:
-
-```text
-0.0.0.0/0
-```
-
-Verificar `MONGODB_URL` en Render.
-
----
-
-### Error: App móvil sigue usando versión antigua
-
-Solución:
-
-* Desinstalar APK anterior del celular.
-* Limpiar carpeta `build`.
-* Compilar nuevamente usando `mobile_main.py`.
-* Instalar la nueva APK.
-
----
-
-## 20. Plan de pruebas
-
-### Pruebas de usuario
-
-* Registrar usuario.
-* Iniciar sesión.
-* Modificar dirección de despacho.
-* Agregar productos al carrito.
-* Usar puntos.
-* Pagar con Webpay.
-* Revisar seguimiento.
-
-### Pruebas de administrador
-
-* Iniciar sesión como administrador.
-* Ver productos.
-* Ver usuarios.
-* Ver pedidos.
-* Actualizar estado de pedido.
-* Confirmar envío de correo.
-* Revisar historial de cambios.
-
-### Pruebas de pago
-
-* Verificar monto enviado a Webpay.
-* Confirmar pedido solo si el pago es autorizado.
-* Validar descuento de stock.
-* Validar asignación de puntos.
-* Validar que el carrito se limpie después del pago.
-
-### Pruebas móviles
-
-* Ejecutar con `flet run --android`.
-* Instalar APK.
-* Probar login.
-* Probar carrito.
-* Probar Webpay.
-* Probar seguimiento.
-
----
-
-## 21. Estado actual del proyecto
-
-Actualmente el proyecto cuenta con:
-
-* Backend funcional en FastAPI.
-* Despliegue en Render.
-* Base de datos MongoDB Atlas.
-* Catálogo de productos.
-* Carrito de compras.
-* Login y registro.
-* Sistema de puntos.
-* Descuentos por preferencias.
-* Dirección de despacho por usuario.
-* Webpay Plus en ambiente de integración.
-* Creación automática de pedidos.
-* Seguimiento de pedidos.
-* Panel administrador.
-* Correos por cambio de estado.
-* Pruebas móviles con Flet.
-* Proceso de generación APK.
-
----
-
-## 22. Próximas mejoras
-
-* Mejorar diseño visual móvil.
-* Optimizar panel administrador.
-* Implementar proveedor profesional de correos.
-* Mejorar exportación de pedidos.
-* Agregar recuperación de contraseña.
-* Completar integración con Instagram y TikTok.
-* Publicar APK estable.
-* Agregar logs y monitoreo.
-* Agregar pruebas automatizadas.
-* Mejorar seguridad de producción.
-* Configurar dominio propio.
-
----
-
-## 23. Autores
-
-Proyecto desarrollado por:
-
-* **Matías Alarcón** – Jefe de proyecto.
-* **Máximo Lorca** – Desarrollador.
-
----
-
-## 24. Licencia
-
-Proyecto académico desarrollado para fines educativos.
-
----
-
-## 25. URL del backend
-
-Backend desplegado en Render:
-
-```text
-https://ischuu-app.onrender.com
-```
-
-Documentación Swagger:
-
-```text
-https://ischuu-app.onrender.com/docs
-```
+Proyecto académico desarrollado con fines educativos. El repositorio no declara por ahora una licencia de código abierto.

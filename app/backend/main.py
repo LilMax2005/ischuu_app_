@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.backend.core.security import get_password_hash
 from app.backend.db import db, ping_mongodb
-from app.backend.routers import admin, auth, orders, payments, products
+from app.backend.routers import admin, auth, notifications, orders, payments, products
 from app.backend.services.catalog import CATALOG
 
 try:
@@ -36,6 +36,7 @@ app.include_router(products.router)
 app.include_router(orders.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
+app.include_router(notifications.router)
 
 if password is not None:
     app.include_router(password.router)
