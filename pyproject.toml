@@ -1,0 +1,31 @@
+[project]
+name = "ischuu_app"
+version = "1.0.1"
+requires-python = ">=3.10"
+dependencies = [
+    "flet==0.85.2",
+    "flet-onesignal==0.4.4",
+    "httpx>=0.28.1",
+    "python-dotenv>=1.0"
+]
+
+[tool.flet.app]
+module = "main"
+exclude = [
+    ".venv",
+    ".git",
+    "flutter",
+    "backend",
+    "app/app",
+    "app/docs",
+    "app/scripts",
+    "app/tests",
+    "docs",
+    "scripts",
+    "tests",
+    "__pycache__",
+    ".idea"
+]
+
+[tool.flet.android]
+permission."android.permission.POST_NOTIFICATIONS" = true

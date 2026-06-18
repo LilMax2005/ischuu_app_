@@ -1,6 +1,6 @@
 # Ischuu App
 
-Aplicación de comercio electrónico para **Ischuu**, una tienda de blind boxes, figuras coleccionables y productos de cultura pop. Incluye una interfaz multiplataforma en Flet, una API REST en FastAPI y un panel de administración.
+Aplicación móvil de comercio electrónico para **Ischuu**, una tienda de blind boxes, figuras coleccionables y productos de cultura pop. El cliente se distribuye únicamente para Android/iOS; FastAPI funciona como API remota y no existe una aplicación web.
 
 [Backend desplegado](https://ischuu-app.onrender.com) · [Documentación de la API](https://ischuu-app.onrender.com/docs)
 
@@ -24,7 +24,7 @@ Aplicación de comercio electrónico para **Ischuu**, una tienda de blind boxes,
 
 ```mermaid
 flowchart LR
-    F["Cliente Flet<br/>Windows, Android o iOS"] -->|HTTPS / JSON| A["API FastAPI<br/>Render"]
+    F["App móvil Flet<br/>Android / iOS"] -->|HTTPS / JSON| A["API FastAPI<br/>Render"]
     A --> M[(MongoDB Atlas)]
     A --> W["Webpay Plus"]
     A --> S["SMTP"]
@@ -33,13 +33,13 @@ flowchart LR
 
 ### Tecnologías principales
 
-- **Interfaz:** Python y Flet.
+- **Aplicación móvil:** Python y Flet para Android/iOS.
 - **API:** FastAPI y Uvicorn.
 - **Persistencia:** MongoDB, Motor y PyMongo.
 - **Autenticación:** JWT y Argon2.
 - **Pagos:** Transbank SDK para Webpay Plus.
 - **Integraciones:** SMTP para correos y OneSignal para notificaciones push.
-- **Distribución:** Flet Build para Android y PyInstaller para Windows.
+- **Distribución:** APK/AAB para Android e IPA para iOS mediante Flet Build.
 
 ### Organización MVC
 
@@ -115,13 +115,13 @@ ONESIGNAL_REST_API_KEY=
 
 ### 3. Ejecutar la aplicación
 
-#### Opción rápida: interfaz conectada al backend desplegado
+#### Probar en Android conectado al equipo
 
 ```powershell
-python main.py
+flet run --android main.py
 ```
 
-`main.py` y `mobile_main.py` leen `FRONTEND_API_BASE_URL`; si no existe, usan `API_BASE_URL` y finalmente el backend desplegado como valor predeterminado.
+`main.py` es la única entrada del cliente móvil. Lee `FRONTEND_API_BASE_URL`; si no existe, usa `API_BASE_URL` y finalmente el backend desplegado como valor predeterminado.
 
 #### Desarrollo local del backend
 
@@ -144,11 +144,11 @@ Para conectar Flet a esta API local, configura:
 FRONTEND_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-Después abre otra terminal y ejecuta:
+Después abre otra terminal y ejecuta la app en Android:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
-python main.py
+flet run --android main.py
 ```
 
 > `API_BASE_URL` configura las URLs generadas por el backend, como el retorno de Webpay. `FRONTEND_API_BASE_URL` permite que el cliente Flet apunte a otro entorno.
@@ -200,9 +200,10 @@ Para habilitar notificaciones móviles de cambios de pedido:
 1. Crea una aplicación en OneSignal.
 2. Configura FCM para Android y APNs si distribuirás la app en iOS.
 3. Define `ONESIGNAL_APP_ID` y `ONESIGNAL_REST_API_KEY` únicamente en el entorno del backend.
-4. Vuelve a instalar dependencias y recompila la aplicación móvil.
+4. Comprueba en OneSignal que Google Android (FCM) esté configurado para la misma aplicación.
+5. Instala `flet-onesignal`, recompila e instala nuevamente la APK.
 
-La API entrega al cliente solo el App ID público mediante `/api/v1/notifications/config`. La REST API key permanece en el servidor. Cada usuario puede activar o desactivar los avisos desde **Perfil → Notificaciones**.
+La API entrega al cliente solo el App ID público mediante `/api/v1/notifications/config`. La REST API key permanece en el servidor. Cada usuario puede activar los avisos y ejecutar **Perfil → Probar aviso** para verificar permiso, vínculo y entrega.
 
 ### SMTP
 
@@ -213,7 +214,7 @@ Si `SMTP_HOST`, `SMTP_USER` y `SMTP_PASSWORD` están configurados, el backend en
 ### Probar en un dispositivo Android
 
 ```powershell
-flet run --android mobile_main.py
+flet run --android main.py
 ```
 
 Este modo es apropiado para desarrollo y mantiene una sesión conectada al equipo.
@@ -225,6 +226,10 @@ python -m pip install -r requirements.txt
 flet build apk
 ```
 
+`pyproject.toml` incluye `flet-onesignal` y el permiso Android `POST_NOTIFICATIONS`. Una APK compilada antes de estos cambios no puede recibir push y debe desinstalarse antes de instalar la nueva.
+
+En Windows, Flet necesita soporte de enlaces simbólicos para plugins. Si aparece `Building with plugins requires symlink support`, activa **Modo de desarrollador** en Configuración de Windows y vuelve a compilar.
+
 Para localizar el artefacto generado:
 
 ```powershell
@@ -233,17 +238,9 @@ Get-ChildItem -Recurse -Filter *.apk
 
 Antes de compilar, confirma que `FRONTEND_API_BASE_URL` apunta al backend que utilizará la APK.
 
-### Generar un ejecutable de Windows
-
-```powershell
-.\scripts\build_windows.ps1
-```
-
-El script crea el entorno virtual si hace falta, instala PyInstaller y deja el ejecutable en `dist/`.
-
 ## Despliegue del backend en Render
 
-Configuración base del servicio web:
+Configuración base de la API remota. Este servicio HTTP es consumido por la app móvil y no contiene una interfaz web:
 
 ```text
 Runtime: Python
@@ -281,10 +278,8 @@ ischuu_app_/
 │       ├── models/        # Entidades del cliente
 │       ├── services/      # Cliente HTTP
 │       └── views/         # Tienda, carrito, pedidos, perfil y admin
-├── scripts/
-│   └── build_windows.ps1
-├── main.py                # Entrada Flet de escritorio
-├── mobile_main.py         # Entrada Flet para pruebas móviles
+├── main.py                # Única entrada de la app móvil
+├── pyproject.toml         # Build Android/iOS y dependencias móviles
 ├── docker-compose.yml     # MongoDB local de apoyo
 ├── requirements.txt
 └── runtime.txt
@@ -312,7 +307,7 @@ Verifica las variables SMTP y revisa la salida del backend. Gmail puede rechazar
 
 ### No llegan notificaciones push
 
-Confirma la configuración de FCM/APNs en OneSignal, las dos variables del backend, el permiso del sistema operativo y la preferencia del usuario en su perfil.
+Instala la APK nueva, inicia sesión, activa los avisos y pulsa **Perfil → Probar aviso**. Si OneSignal informa que no encontró un teléfono vinculado, revisa FCM, el permiso Android y que el usuario haya iniciado sesión después de instalar la APK corregida.
 
 ## Pruebas
 

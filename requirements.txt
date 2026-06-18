@@ -1,10 +1,10 @@
-flet[all]
-flet-onesignal>=0.4.4
+flet==0.85.2
+flet-onesignal==0.4.4
 fastapi
 uvicorn[standard]
 motor
 pymongo
-httpx
+httpx>=0.28.1
 python-dotenv
 python-multipart
 PyJWT

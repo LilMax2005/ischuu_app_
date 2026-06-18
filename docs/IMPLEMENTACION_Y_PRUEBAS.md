@@ -102,6 +102,19 @@ Este documento relaciona los requisitos solicitados con el código actual. Los e
 16. La conexión a MongoDB forzaba TLS incluso contra el contenedor local; ahora se detecta Atlas y puede configurarse con `MONGODB_TLS`.
 17. El entorno `.venv` local apunta a una instalación de Python eliminada.
 18. El controlador Flet repetía hasta tres veces los métodos de dirección de despacho; se dejó una sola implementación.
+19. El APK se compilaba sin `flet-onesignal` ni `POST_NOTIFICATIONS`; el import fallaba silenciosamente y ningún teléfono quedaba vinculado.
+20. El registro creaba la cuenta y encadenaba un login sin confirmación persistente; un fallo posterior hacía parecer que el registro no funcionó.
+21. El repositorio contenía una segunda copia completa en `app/app`, que podía empaquetar código móvil obsoleto.
+
+## Correcciones específicas del APK
+
+- `pyproject.toml`: dependencias móviles fijadas, OneSignal incluido y permiso Android agregado.
+- `frontend/controllers/app_controller.py`: registro con validación, confirmación visible, auto-login verificable y vinculación push al iniciar sesión.
+- `frontend/views/auth.py`: banner persistente para éxito y errores de registro.
+- `frontend/views/admin.py` y controlador: teclado e input filter numérico en teléfono, número, precio, stock, cantidades y puntos.
+- `frontend/views/profile.py`: estado visible de OneSignal y botón **Probar aviso**.
+- `backend/routers/notifications.py`: endpoint autenticado de diagnóstico push.
+- Se eliminaron las copias anidadas y artefactos de Windows; `main.py` es la única entrada de la app móvil.
 
 ## Evidencia automatizada
 
@@ -117,22 +130,23 @@ Pruebas incluidas:
 - `test_security.py`: usuario inactivo, administrador real y token bearer.
 - `test_cart_and_stock.py`: carrito vacío, duplicados, falta de stock, update condicional y rollback.
 - `test_checkout.py`: pago rechazado, monto alterado, idempotencia, pedido Pagado y concurrencia.
+- `test_shipping.py`: teléfono y número de dirección exclusivamente numéricos.
+- `test_notifications.py`: proveedor caído, teléfono no vinculado y envío de prueba correcto.
 
 Ejecución realizada en esta entrega:
 
 ```text
-tests.test_pricing: 4 pruebas ejecutadas, 4 correctas.
+Suite completa: 26 pruebas ejecutadas, 26 correctas.
 compileall: todos los archivos Python compilaron sin errores de sintaxis.
 ```
 
-La ejecución del resto de la suite quedó bloqueada porque `.venv` referencia una instalación eliminada de Python 3.11 y el entorno de trabajo no permitió una segunda ejecución externa. Las pruebas están preparadas, pero no se marcan como aprobadas hasta ejecutar el comando anterior en un entorno válido.
+La suite fue ejecutada con el entorno aislado de Python 3.11 preparado para pruebas.
 
 ## Pendientes reales
 
-- Ejecutar toda la suite con un Python 3.11 funcional.
 - Ejecutar un pago completo contra Webpay Integration y adjuntar el comprobante.
 - Verificar correo SMTP y push OneSignal con credenciales reales.
 - Probar el despliegue contra una base de pruebas de MongoDB Atlas.
 - Definir el proceso comercial de reembolso para un pago autorizado que quede en revisión manual por falta de stock.
 - Agregar transacciones MongoDB si el clúster de producción las admite; la compensación actual evita negativos, pero una transacción ofrece garantías superiores ante una caída del proceso.
-- Corregir o recrear `.venv` antes de la entrega final.
+- Recrear `.venv` antes de desarrollo local; la suite se validó con `.test-venv`.

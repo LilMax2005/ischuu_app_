@@ -49,6 +49,9 @@ def build_profile_view(controller: "AppController") -> ft.Control:
     def logout(_: ft.ControlEvent) -> None:
         controller.handle_logout()
 
+    def test_notification(_: ft.ControlEvent) -> None:
+        controller.handle_test_notification()
+
     level = "Ischuu Gold" if user_points >= 100 else "Ischuu Starter"
 
     preferences_text = (
@@ -148,6 +151,10 @@ def build_profile_view(controller: "AppController") -> ft.Control:
                             "La primera vez, Android o iOS solicitará permiso para mostrar avisos.",
                             12,
                         ),
+                        muted_text(
+                            str(getattr(controller, "push_status_message", "")),
+                            12,
+                        ),
                         ft.Row(
                             spacing=10,
                             controls=[
@@ -156,6 +163,12 @@ def build_profile_view(controller: "AppController") -> ft.Control:
                                     icon=ft.Icons.SAVE,
                                     on_click=save_profile,
                                     style=primary_button_style(),
+                                ),
+                                ft.OutlinedButton(
+                                    content="Probar aviso",
+                                    icon=ft.Icons.NOTIFICATIONS_ACTIVE_OUTLINED,
+                                    on_click=test_notification,
+                                    style=outline_button_style(),
                                 ),
                                 ft.OutlinedButton(
                                     content="Cerrar sesión",
@@ -184,7 +197,7 @@ def build_profile_view(controller: "AppController") -> ft.Control:
                             "Por cada $500 en productos pagados acumulas 1 punto."
                         ),
                         muted_text(
-                            "Cada punto equivale a $50 de descuento en futuras compras."
+                            "Cada punto equivale a $25 de descuento en futuras compras."
                         ),
                         muted_text(
                             "Tus categorías favoritas se calculan según tu historial de compra."

@@ -207,6 +207,8 @@ def build_product_form(controller: "AppController") -> ft.Control:
         label="Precio",
         value="0",
         width=160,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        input_filter=ft.NumbersOnlyInputFilter(),
         **input_style(),
     )
 
@@ -214,6 +216,8 @@ def build_product_form(controller: "AppController") -> ft.Control:
         label="Stock",
         value="0",
         width=160,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        input_filter=ft.NumbersOnlyInputFilter(),
         **input_style(),
     )
 
@@ -329,12 +333,22 @@ def build_product_form(controller: "AppController") -> ft.Control:
 
 def build_product_admin_card(controller: "AppController", product: dict) -> ft.Control:
     product_id = product.get("id", "")
-    quantity_field = ft.TextField(label="Cantidad", value="1", width=130, prefix_icon=ft.Icons.ADD, **input_style())
+    quantity_field = ft.TextField(
+        label="Cantidad",
+        value="1",
+        width=130,
+        prefix_icon=ft.Icons.ADD,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        input_filter=ft.NumbersOnlyInputFilter(),
+        **input_style(),
+    )
     stock_field = ft.TextField(
         label="Nuevo stock",
         value=str(product.get("stock", 0)),
         width=150,
         prefix_icon=ft.Icons.INVENTORY_2_OUTLINED,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        input_filter=ft.NumbersOnlyInputFilter(),
         **input_style(),
     )
 
@@ -552,6 +566,8 @@ def build_user_admin_card(controller: "AppController", user: dict) -> ft.Control
         value=str(user.get("points", 0)),
         width=130,
         prefix_icon=ft.Icons.STARS_OUTLINED,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        input_filter=ft.NumbersOnlyInputFilter(),
         **input_style(),
     )
 

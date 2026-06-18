@@ -13,5 +13,5 @@ ischuu_cart_local.json
 ischuu_pending_payment.json
 ischuu_shipping_address.json
 build/
-build/
 *.apk
+flet-build.log

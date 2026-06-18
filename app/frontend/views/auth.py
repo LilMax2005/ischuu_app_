@@ -26,10 +26,32 @@ def build_auth_gate(controller: "AppController") -> ft.Control:
         spacing=16,
         controls=[
             _build_auth_header(),
+            _build_auth_feedback(controller),
             build_login_view(controller)
             if auth_mode == "login"
             else build_register_view(controller),
         ],
+    )
+
+
+def _build_auth_feedback(controller: "AppController") -> ft.Control:
+    message = str(getattr(controller, "auth_feedback", "") or "").strip()
+    is_error = bool(getattr(controller, "auth_feedback_error", False))
+    return ft.Container(
+        visible=bool(message),
+        padding=12,
+        border_radius=14,
+        bgcolor=IschuuColors.DANGER if is_error else IschuuColors.SUCCESS,
+        content=ft.Row(
+            spacing=8,
+            controls=[
+                ft.Icon(
+                    ft.Icons.ERROR_OUTLINE if is_error else ft.Icons.CHECK_CIRCLE_OUTLINE,
+                    color=IschuuColors.ON_PRIMARY,
+                ),
+                ft.Text(message, color=IschuuColors.ON_PRIMARY, expand=True),
+            ],
+        ),
     )
 
 
@@ -72,6 +94,7 @@ def build_login_view(controller: "AppController") -> ft.Control:
         label="Correo",
         value="",
         prefix_icon=ft.Icons.EMAIL_OUTLINED,
+        keyboard_type=ft.KeyboardType.EMAIL,
         **input_style(),
     )
 
@@ -92,6 +115,7 @@ def build_login_view(controller: "AppController") -> ft.Control:
             )
         )
     def go_register(_: ft.ControlEvent) -> None:
+        controller.set_auth_feedback()
         controller.auth_mode = "register"
         controller.render()
 
@@ -153,6 +177,7 @@ def build_register_view(controller: "AppController") -> ft.Control:
     email = ft.TextField(
         label="Correo",
         prefix_icon=ft.Icons.EMAIL_OUTLINED,
+        keyboard_type=ft.KeyboardType.EMAIL,
         **input_style(),
     )
 
@@ -174,6 +199,7 @@ def build_register_view(controller: "AppController") -> ft.Control:
         )
 
     def go_login(_: ft.ControlEvent) -> None:
+        controller.set_auth_feedback()
         controller.auth_mode = "login"
         controller.render()
 
@@ -191,6 +217,7 @@ def build_register_view(controller: "AppController") -> ft.Control:
                     icon=ft.Icons.PERSON_ADD_ALT_1,
                     height=48,
                     on_click=do_register,
+                    disabled=bool(getattr(controller, "auth_busy", False)),
                     style=primary_button_style(),
                 ),
                 ft.OutlinedButton(

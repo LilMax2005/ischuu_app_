@@ -137,6 +137,15 @@ class ApiClient:
             response.raise_for_status()
             return response.json()
 
+    async def send_test_notification(self) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/v1/notifications/test",
+                headers=self.headers(),
+            )
+            response.raise_for_status()
+            return response.json()
+
     # =========================
     # WEBPAY
     # =========================

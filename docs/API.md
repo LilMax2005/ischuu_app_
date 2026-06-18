@@ -15,6 +15,8 @@ Las rutas privadas usan `Authorization: Bearer <token>`. Un usuario desactivado 
 | GET | `/auth/me/points` | Usuario activo | Saldo de puntos |
 | PATCH | `/auth/me/shipping-address` | Usuario activo | Guarda dirección de despacho |
 | PATCH | `/auth/me/notifications` | Usuario activo | Activa o desactiva push |
+| GET | `/notifications/config` | Público | App ID público y estado de OneSignal |
+| POST | `/notifications/test` | Usuario activo | Envía una prueba al teléfono vinculado |
 | POST | `/password/forgot` | Público | Solicita recuperación sin revelar si existe el correo |
 | POST | `/password/reset` | Público | Cambia contraseña con token vigente |
 

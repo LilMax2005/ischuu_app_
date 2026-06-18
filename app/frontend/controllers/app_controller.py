@@ -44,6 +44,7 @@ class AppController:
         self.onesignal = None
         self.push_service_ready = False
         self.push_permission_granted = False
+        self.push_status_message = "Preparando notificaciones móviles..."
         self.pending_push_route: str | None = None
 
         # Dirección de despacho
@@ -52,6 +53,9 @@ class AppController:
 
         self.current_section = 0
         self.auth_mode = "login"
+        self.auth_feedback = ""
+        self.auth_feedback_error = False
+        self.auth_busy = False
         self.cart_quote: dict[str, Any] = {}
         self.payment_polling = False
 
@@ -64,6 +68,9 @@ class AppController:
         self.shipping_phone = ft.TextField(
             label="Teléfono",
             prefix_icon=ft.Icons.PHONE_OUTLINED,
+            keyboard_type=ft.KeyboardType.PHONE,
+            input_filter=ft.NumbersOnlyInputFilter(),
+            max_length=12,
             **input_style(),
         )
 
@@ -89,6 +96,9 @@ class AppController:
         self.shipping_number = ft.TextField(
             label="Número",
             prefix_icon=ft.Icons.TAG_OUTLINED,
+            keyboard_type=ft.KeyboardType.NUMBER,
+            input_filter=ft.NumbersOnlyInputFilter(),
+            max_length=8,
             **input_style(),
         )
 
@@ -209,8 +219,24 @@ class AppController:
         self.render()
 
     def on_push_notification_foreground(self, _event) -> None:
+        self.push_status_message = "Notificación recibida correctamente."
         if self.state.current_user is not None:
             self.run_async(self.load_orders())
+
+    def on_push_permission_change(self, event) -> None:
+        self.push_permission_granted = bool(getattr(event, "permission", False))
+        self.push_status_message = (
+            "Notificaciones activas en este teléfono."
+            if self.push_permission_granted
+            else "Android no tiene permiso para mostrar notificaciones."
+        )
+        if self.state.current_user is not None:
+            self.render()
+
+    def on_push_error(self, event) -> None:
+        message = str(getattr(event, "message", "Error desconocido")).strip()
+        self.push_status_message = f"Error de notificaciones: {message}"
+        print(self.push_status_message)
 
     async def setup_push_notifications(self) -> bool:
         if self.onesignal is not None:
@@ -223,21 +249,29 @@ class AppController:
             config = await self.api.get_notification_config()
             app_id = str(config.get("app_id", "")).strip()
             if not config.get("enabled") or not app_id:
+                self.push_status_message = "OneSignal no está configurado en el backend."
                 return False
 
             import flet_onesignal as fos
 
             self.onesignal = fos.OneSignal(
                 app_id=app_id,
+                log_level=fos.OSLogLevel.INFO,
                 on_notification_click=self.on_push_notification_click,
                 on_notification_foreground=self.on_push_notification_foreground,
+                on_permission_change=self.on_push_permission_change,
+                on_error=self.on_push_error,
             )
             self.page.services.append(self.onesignal)
             self.push_service_ready = True
+            self.push_status_message = "OneSignal listo; falta vincular la cuenta."
             self.page.update()
             return True
         except Exception as exc:
             print(f"Notificaciones móviles no disponibles: {exc}")
+            self.push_status_message = (
+                "Este APK no incluye el servicio de notificaciones. Reinstala la versión corregida."
+            )
             self.onesignal = None
             self.push_service_ready = False
             return False
@@ -261,11 +295,21 @@ class AppController:
                 self.push_permission_granted = bool(granted)
                 if granted:
                     await self.onesignal.user.opt_in_push()
+                    opted_in = await self.onesignal.user.is_push_opted_in()
+                    subscription_id = await self.onesignal.user.get_push_subscription_id()
+                    if opted_in and subscription_id:
+                        self.push_status_message = "Notificaciones activas en este teléfono."
+                    else:
+                        self.push_status_message = "OneSignal aún no asignó una suscripción al teléfono."
+                else:
+                    self.push_status_message = "Android no autorizó las notificaciones."
             else:
                 await self.onesignal.user.opt_out_push()
                 self.push_permission_granted = False
+                self.push_status_message = "Notificaciones desactivadas desde el perfil."
         except Exception as exc:
             print(f"No se pudo vincular el teléfono a las notificaciones: {exc}")
+            self.push_status_message = f"No se pudo vincular este teléfono: {exc}"
 
     async def disconnect_push_user(self) -> None:
         if self.onesignal is None:
@@ -281,12 +325,37 @@ class AppController:
             self.save_notification_preference(bool(notifications_enabled))
         )
 
+    def handle_test_notification(self) -> None:
+        self.run_async(self.test_push_notification())
+
+    async def test_push_notification(self) -> None:
+        if self.state.current_user is None:
+            self.show_message("Debes iniciar sesión para probar notificaciones.", error=True)
+            return
+        try:
+            if self.onesignal is None and not await self.setup_push_notifications():
+                raise RuntimeError(self.push_status_message)
+            await self.activate_push_for_current_user()
+            if not self.push_permission_granted:
+                raise RuntimeError(self.push_status_message)
+            await self.api.send_test_notification()
+            self.show_message("Notificación de prueba enviada al teléfono.")
+        except httpx.HTTPStatusError as exc:
+            message = self.http_error_message(exc, "No se pudo enviar la notificación de prueba.")
+            self.push_status_message = message
+            self.show_message(message, error=True)
+            self.render()
+        except Exception as exc:
+            self.push_status_message = str(exc)
+            self.show_message(self.push_status_message, error=True)
+            self.render()
+
     async def save_notification_preference(self, enabled: bool) -> None:
         try:
             effective_enabled = enabled
 
             if enabled and self.onesignal is None:
-                await self.setup_push_notifications()
+                effective_enabled = await self.setup_push_notifications()
 
             if self.onesignal is not None:
                 if enabled:
@@ -298,9 +367,18 @@ class AppController:
                     if granted:
                         await self.onesignal.login(str(self.state.current_user.id))
                         await self.onesignal.user.opt_in_push()
+                        opted_in = await self.onesignal.user.is_push_opted_in()
+                        subscription_id = await self.onesignal.user.get_push_subscription_id()
+                        effective_enabled = bool(opted_in and subscription_id)
+                        self.push_status_message = (
+                            "Notificaciones activas en este teléfono."
+                            if effective_enabled
+                            else "OneSignal aún no asignó una suscripción al teléfono."
+                        )
                 else:
                     await self.onesignal.user.opt_out_push()
                     self.push_permission_granted = False
+                    self.push_status_message = "Notificaciones desactivadas desde el perfil."
 
             user_data = await self.api.update_notification_preference(
                 effective_enabled
@@ -444,6 +522,23 @@ class AppController:
             open=True,
         )
         self.page.update()
+
+    def set_auth_feedback(self, message: str = "", error: bool = False) -> None:
+        self.auth_feedback = message
+        self.auth_feedback_error = error
+
+    @staticmethod
+    def http_error_message(exc: httpx.HTTPStatusError, fallback: str) -> str:
+        try:
+            detail = exc.response.json().get("detail")
+            if isinstance(detail, list):
+                messages = [str(item.get("msg", "Dato inválido")) for item in detail]
+                return "; ".join(messages)
+            if detail:
+                return str(detail)
+        except Exception:
+            pass
+        return fallback
 
     def user_from_dict(self, user_data: dict) -> User:
         return User(
@@ -865,8 +960,20 @@ class AppController:
             ],
         )
 
-    async def handle_login(self, email: str, password: str) -> None:
+    async def handle_login(
+        self,
+        email: str,
+        password: str,
+        success_message: str = "Sesión iniciada correctamente",
+    ) -> bool:
+        email = email.lower().strip()
+        if not email or not password:
+            self.set_auth_feedback("Ingresa correo y contraseña.", error=True)
+            self.render()
+            return False
+
         try:
+            self.set_auth_feedback()
             data = await self.api.login(email, password)
             self.api.set_token(data["access_token"])
 
@@ -877,6 +984,7 @@ class AppController:
                 getattr(self.state.current_user, "shipping_address", {}) or {}
             )
 
+            await self.activate_push_for_current_user()
             await self.load_orders()
             await self.check_pending_payment(show_if_empty=False)
 
@@ -885,30 +993,79 @@ class AppController:
 
             self.navbar = build_navigation_bar(self)
             self.page.navigation_bar = self.navbar
+            self.auth_mode = "login"
 
-            self.show_message("Sesión iniciada correctamente")
+            self.show_message(success_message)
             self.render()
+            return True
 
         except httpx.HTTPStatusError as exc:
-            self.show_message(f"No se pudo iniciar sesión: {exc.response.text}", error=True)
+            message = self.http_error_message(exc, "No se pudo iniciar sesión.")
+            self.set_auth_feedback(message, error=True)
+            self.show_message(message, error=True)
+            self.render()
+            return False
 
         except Exception as exc:
-            self.show_message(f"No se pudo iniciar sesión: {exc}", error=True)
+            message = f"No se pudo conectar con Ischuu: {exc}"
+            self.set_auth_feedback(message, error=True)
+            self.show_message(message, error=True)
+            self.render()
+            return False
 
     async def handle_register(self, name: str, email: str, password: str) -> None:
-        try:
-            if not name.strip():
-                self.show_message("Ingresa un nombre para registrarte.", error=True)
-                return
+        if self.auth_busy:
+            return
 
+        name = name.strip()
+        email = email.lower().strip()
+
+        if len(name) < 2:
+            self.set_auth_feedback("El nombre debe tener al menos 2 caracteres.", error=True)
+            self.render()
+            return
+        if "@" not in email or "." not in email.partition("@")[2]:
+            self.set_auth_feedback("Ingresa un correo válido.", error=True)
+            self.render()
+            return
+        if len(password) < 6:
+            self.set_auth_feedback("La contraseña debe tener al menos 6 caracteres.", error=True)
+            self.render()
+            return
+
+        self.auth_busy = True
+        try:
+            self.set_auth_feedback("Creando cuenta...")
+            self.render()
             await self.api.register(name, email, password)
-            await self.handle_login(email, password)
+            logged_in = await self.handle_login(
+                email,
+                password,
+                success_message="Cuenta creada y sesión iniciada correctamente",
+            )
+            if not logged_in:
+                self.auth_mode = "login"
+                self.set_auth_feedback(
+                    "La cuenta fue creada. Ahora inicia sesión con tu correo y contraseña."
+                )
+                self.show_message("Cuenta creada correctamente")
+                self.render()
 
         except httpx.HTTPStatusError as exc:
-            self.show_message(f"No se pudo registrar: {exc.response.text}", error=True)
+            message = self.http_error_message(exc, "No se pudo crear la cuenta.")
+            self.set_auth_feedback(message, error=True)
+            self.show_message(message, error=True)
+            self.render()
 
         except Exception as exc:
-            self.show_message(f"No se pudo registrar: {exc}", error=True)
+            message = f"No se pudo conectar con Ischuu: {exc}"
+            self.set_auth_feedback(message, error=True)
+            self.show_message(message, error=True)
+            self.render()
+        finally:
+            self.auth_busy = False
+            if self.state.current_user is None:
+                self.render()
 
     async def handle_forgot_password(self, email: str) -> None:
         try:

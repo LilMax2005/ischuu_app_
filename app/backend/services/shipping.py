@@ -39,6 +39,18 @@ def normalize_shipping_address(data: dict) -> dict:
             detail=f"Faltan datos de despacho: {', '.join(missing)}",
         )
 
+    if not phone.isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail="El teléfono debe contener solamente números",
+        )
+
+    if not number.isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail="El número de la dirección debe contener solamente números",
+        )
+
     full_address = f"{street} {number}, {comuna}, {region}"
 
     if details:
