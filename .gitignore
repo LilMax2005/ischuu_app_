@@ -1,2 +1,14 @@
 .env
 .env.*
+!.env.example
+.venv/
+.test-venv/
+.uv-cache/
+.uv-python/
+__pycache__/
+*.py[cod]
+dist/
+pedidos_ischuu.xlsx
+ischuu_cart_local.json
+ischuu_pending_payment.json
+ischuu_shipping_address.json

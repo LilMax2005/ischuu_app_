@@ -1,98 +1,129 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional
+from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+from pydantic import BaseModel, Field, field_validator
 
 
-class TokenPayload(BaseModel):
-    sub: str
-    exp: int
+def clean_email(value: str) -> str:
+    email = str(value).lower().strip()
+    local, separator, domain = email.partition("@")
+    if not separator or not local or "." not in domain:
+        raise ValueError("Correo inválido")
+    return email
 
 
 class UserCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
-    email: EmailStr
+    email: str = Field(min_length=5, max_length=254)
     password: str = Field(min_length=6, max_length=128)
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        return value.strip()
 
-class UserRead(BaseModel):
-    id: str
-    name: str
-    email: EmailStr
-    is_active: bool = True
-    is_admin: bool = False
-    points: int = 0
-    created_at: datetime
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return clean_email(value)
+
+
+class ShippingAddressPayload(BaseModel):
+    recipient: str
+    phone: str
+    region: str
+    comuna: str
+    street: str
+    number: str
+    details: str = ""
+
+
+class NotificationPreferenceUpdate(BaseModel):
+    enabled: bool
+
+
+class CartItemPayload(BaseModel):
+    product_id: str
+    quantity: int = Field(ge=1, le=100)
+
+
+class CartQuoteRequest(BaseModel):
+    items: list[CartItemPayload]
+    use_points: bool = False
+    requested_points: int | None = Field(default=None, ge=0)
+
+
+class CartPaymentRequest(CartQuoteRequest):
+    shipping_address: ShippingAddressPayload
+
+
+class AdminUserUpdate(BaseModel):
+    is_active: bool | None = None
+    is_admin: bool | None = None
+    points: int | None = Field(default=None, ge=0)
 
 
 class ProductCreate(BaseModel):
-    name: str
-    series: str
-    description: str
-    category: str
-    rarity: str
-    image_url: Optional[str] = None
-    price: float = Field(gt=0)
+    name: str = Field(min_length=1, max_length=160)
+    series: str = ""
+    category: str = Field(min_length=1, max_length=80)
+    rarity: str = "Común"
+    price: int = Field(gt=0)
     stock: int = Field(ge=0)
     is_original: bool = True
+    description: str = ""
+    image_url: str = ""
+
+    @field_validator("name", "category", mode="before")
+    @classmethod
+    def normalize_required_text(cls, value: str) -> str:
+        return str(value).strip()
 
 
-class ProductRead(BaseModel):
-    id: str
-    name: str
-    series: str
-    description: str
-    category: str
-    rarity: str
-    image_url: Optional[str] = None
-    price: float
-    stock: int
-    is_original: bool = True
-    is_active: bool = True
-    created_at: datetime
+class ProductUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    series: str | None = None
+    category: str | None = Field(default=None, min_length=1, max_length=80)
+    rarity: str | None = None
+    price: int | None = Field(default=None, gt=0)
+    stock: int | None = Field(default=None, ge=0)
+    is_original: bool | None = None
+    description: str | None = None
+    image_url: str | None = None
+
+    @field_validator("name", "category", mode="before")
+    @classmethod
+    def normalize_optional_required_text(cls, value: str | None) -> str | None:
+        return None if value is None else str(value).strip()
 
 
-class OrderItemCreate(BaseModel):
-    product_id: str
-    quantity: int = Field(gt=0, le=20)
+class StockUpdate(BaseModel):
+    operation: Literal["add", "set"]
+    quantity: int | None = Field(default=None, gt=0)
+    stock: int | None = Field(default=None, ge=0)
 
 
-class OrderItemRead(BaseModel):
-    id: str
-    product_id: str
-    quantity: int
-    unit_price: float
-
-
-class OrderCreate(BaseModel):
-    items: list[OrderItemCreate]
-
-
-class OrderRead(BaseModel):
-    id: str
-    user_id: str
+class OrderStatusUpdate(BaseModel):
     status: str
-    payment_status: str
-    total: float
-    stripe_payment_intent_id: Optional[str] = None
-    created_at: datetime
-    items: list[OrderItemRead]
 
 
-class PaymentIntentRequest(BaseModel):
-    order_id: str
+class SocialSettingsUpdate(BaseModel):
+    instagram_url: str = ""
+    tiktok_url: str = ""
+    instagram_enabled: bool = False
+    tiktok_enabled: bool = False
 
 
-class PaymentIntentResponse(BaseModel):
-    order_id: str
-    client_secret: str
-    payment_intent_id: str
-    amount: int
-    currency: str
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return clean_email(value)
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=1)
+    new_password: str = Field(min_length=6, max_length=128)

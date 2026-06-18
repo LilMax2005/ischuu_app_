@@ -12,14 +12,20 @@ class Settings(BaseSettings):
 
     mongodb_url: str
     mongodb_database: str = "ischuu"
+    mongodb_tls: bool | None = None
 
     api_base_url: str = "https://ischuu-app.onrender.com"
+    cors_origins: str = "*"
 
     tbk_env: str = "integration"
     tbk_commerce_code: str = ""
     tbk_api_key: str = ""
 
     membership_amount: int = 20000
+
+    # Administrador inicial opcional. No existen credenciales por defecto.
+    admin_email: str = ""
+    admin_password: str = ""
 
     # SMTP / Correos
     smtp_host: str = ""

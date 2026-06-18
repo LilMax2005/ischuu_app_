@@ -4,6 +4,8 @@ Aplicación de comercio electrónico para **Ischuu**, una tienda de blind boxes,
 
 [Backend desplegado](https://ischuu-app.onrender.com) · [Documentación de la API](https://ischuu-app.onrender.com/docs)
 
+[Informe de implementación](docs/IMPLEMENTACION_Y_PRUEBAS.md) · [Referencia de API](docs/API.md) · [Backlog y criterios Scrum](docs/BACKLOG_SCRUM.md)
+
 > El proyecto utiliza Webpay en ambiente de integración. No debe tratarse como una tienda en producción sin revisar primero la configuración de seguridad indicada al final de este documento.
 
 ## Funcionalidades
@@ -39,6 +41,19 @@ flowchart LR
 - **Integraciones:** SMTP para correos y OneSignal para notificaciones push.
 - **Distribución:** Flet Build para Android y PyInstaller para Windows.
 
+### Organización MVC
+
+El frontend conserva una separación MVC explícita y el backend aplica MVC adaptado a una API:
+
+| Capa | Ubicación | Responsabilidad |
+| --- | --- | --- |
+| Modelo | `app/backend/models.py`, `schemas.py` y `frontend/models/` | Documentos, estados y validación de datos |
+| Vista | `frontend/views/` y respuestas JSON | Presentación Flet y representación HTTP |
+| Controlador | `frontend/controllers/` y `backend/routers/` | Eventos de interfaz y endpoints |
+| Servicios | `backend/services/` y `frontend/services/` | Reglas de negocio e integraciones externas |
+
+Las reglas de stock, checkout y estados no viven en las vistas ni se duplican entre controladores.
+
 ## Puesta en marcha
 
 ### Requisitos
@@ -61,19 +76,24 @@ python -m pip install -r requirements.txt
 
 ### 2. Configurar las variables de entorno
 
-Crea un archivo `.env` en la raíz. El repositorio ya ignora este archivo para evitar publicar credenciales.
+Copia `.env.example` como `.env` en la raíz. El repositorio ignora `.env` para evitar publicar credenciales.
 
 ```env
 APP_NAME=Ischuu
 SECRET_KEY=reemplazar-por-una-clave-larga-y-aleatoria
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+ADMIN_EMAIL=
+ADMIN_PASSWORD=
 
 MONGODB_URL=mongodb+srv://usuario:password@cluster.mongodb.net/?retryWrites=true&w=majority
 MONGODB_DATABASE=ischuu
+# MONGODB_TLS=false  # Solo para MongoDB local sin TLS
 
 # URL pública del backend; también se usa para el retorno de Webpay.
 API_BASE_URL=http://127.0.0.1:8000
+FRONTEND_API_BASE_URL=http://127.0.0.1:8000
+CORS_ORIGINS=http://127.0.0.1:8000
 
 TBK_ENV=integration
 TBK_COMMERCE_CODE=
@@ -101,7 +121,7 @@ ONESIGNAL_REST_API_KEY=
 python main.py
 ```
 
-Tanto `main.py` como `mobile_main.py` apuntan actualmente a `https://ischuu-app.onrender.com` mediante la constante `API_BASE_URL` definida en cada archivo.
+`main.py` y `mobile_main.py` leen `FRONTEND_API_BASE_URL`; si no existe, usan `API_BASE_URL` y finalmente el backend desplegado como valor predeterminado.
 
 #### Desarrollo local del backend
 
@@ -114,14 +134,14 @@ uvicorn app.backend.main:app --reload --host 127.0.0.1 --port 8000
 
 Comprueba que responde en:
 
-- API: <https://ischuu-app.onrender.com>
-- Salud: <https://ischuu-app.onrender.com/health>
-- Swagger UI: <https://ischuu-app.onrender.com/docs>
+- API: <http://127.0.0.1:8000>
+- Salud: <http://127.0.0.1:8000/health>
+- Swagger UI: <http://127.0.0.1:8000/docs>
 
-Para conectar Flet a esta API local, cambia temporalmente la constante de `main.py`:
+Para conectar Flet a esta API local, configura:
 
-```python
-API_BASE_URL = "https://ischuu-app.onrender.com"
+```env
+FRONTEND_API_BASE_URL=http://127.0.0.1:8000
 ```
 
 Después abre otra terminal y ejecuta:
@@ -131,7 +151,7 @@ Después abre otra terminal y ejecuta:
 python main.py
 ```
 
-> La variable `API_BASE_URL` del archivo `.env` configura las URLs generadas por el **backend**, como el retorno de Webpay. No cambia la URL utilizada por el cliente Flet; esa URL está definida en `main.py` y `mobile_main.py`.
+> `API_BASE_URL` configura las URLs generadas por el backend, como el retorno de Webpay. `FRONTEND_API_BASE_URL` permite que el cliente Flet apunte a otro entorno.
 
 ## Reglas de negocio vigentes
 
@@ -151,10 +171,11 @@ El envío no genera puntos. El pedido, el descuento de stock y la actualización
 
 El seguimiento administrativo utiliza estos estados:
 
-1. `Compra realizada`
-2. `Artículo empaquetado`
-3. `Artículo enviado`
-4. `Artículo entregado`
+1. `Pagado`
+2. `Preparando`
+3. `En despacho`
+4. `Entregado`
+5. `Cancelado`
 
 ## API
 
@@ -210,7 +231,7 @@ Para localizar el artefacto generado:
 Get-ChildItem -Recurse -Filter *.apk
 ```
 
-Antes de compilar, confirma que `API_BASE_URL` en `main.py` apunta al backend que utilizará la APK.
+Antes de compilar, confirma que `FRONTEND_API_BASE_URL` apunta al backend que utilizará la APK.
 
 ### Generar un ejecutable de Windows
 
@@ -283,7 +304,7 @@ La variable `API_BASE_URL` del backend está apuntando al entorno local. En Rend
 
 ### La aplicación móvil muestra 404 o no conecta
 
-Revisa la constante `API_BASE_URL` con la que se compiló la app. Debe ser el origen del backend, sin `/docs` ni `/api/v1`. Desinstala la APK anterior antes de probar una compilación nueva si el dispositivo conserva una versión antigua.
+Revisa `FRONTEND_API_BASE_URL` en el entorno de compilación. Debe ser el origen del backend, sin `/docs` ni `/api/v1`. Desinstala la APK anterior antes de probar una compilación nueva si el dispositivo conserva una versión antigua.
 
 ### No llegan correos
 
@@ -293,14 +314,22 @@ Verifica las variables SMTP y revisa la salida del backend. Gmail puede rechazar
 
 Confirma la configuración de FCM/APNs en OneSignal, las dos variables del backend, el permiso del sistema operativo y la preferencia del usuario en su perfil.
 
+## Pruebas
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+La suite cubre precios, puntos, permisos, usuarios inactivos, carrito vacío, stock insuficiente, rollback, pagos rechazados, monto alterado e idempotencia. Las pruebas reales de Webpay, SMTP y OneSignal requieren sus respectivos ambientes y credenciales.
+
 ## Notas de seguridad y desarrollo
 
 - Cambia `SECRET_KEY` en cualquier entorno compartido o de producción.
-- El backend crea un administrador inicial con credenciales definidas directamente en `app/backend/main.py`. Sustituye ese mecanismo y rota la cuenta antes de publicar el servicio.
-- CORS permite actualmente cualquier origen. Restringe `allow_origins` antes de producción.
-- `app/backend/db.py` fuerza conexiones MongoDB con TLS; MongoDB Atlas es la opción local más directa. El servicio de `docker-compose.yml` requerirá ajustar esa configuración para aceptar MongoDB sin TLS.
-- Existen dos módulos de precios. El flujo de pagos importa `app/backend/services/pricing.py`; evita editar `app/backend/pricing.py` pensando que afectará el checkout.
-- El repositorio no incluye todavía una suite automatizada de pruebas. Valida al menos registro, carrito, pago, stock, puntos, seguimiento, correo y push antes de una entrega.
+- No hay credenciales administrativas predeterminadas. Define `ADMIN_EMAIL` y `ADMIN_PASSWORD` para crear el primer administrador en una base vacía y retira `ADMIN_PASSWORD` del entorno después del primer inicio.
+- Configura `CORS_ORIGINS` con los orígenes permitidos antes de producción; `*` es solo el valor predeterminado de desarrollo.
+- MongoDB Atlas activa TLS automáticamente. Para el servicio local de `docker-compose.yml`, define `MONGODB_URL=mongodb://127.0.0.1:27017` y `MONGODB_TLS=false`.
+- Las reglas de precios viven únicamente en `app/backend/services/pricing.py`.
+- Ejecuta `python -m unittest discover -s tests -v` antes de una entrega y completa las pruebas externas de Webpay, SMTP y OneSignal.
 
 ## Autores
 

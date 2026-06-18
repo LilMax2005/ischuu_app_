@@ -8,16 +8,14 @@ from fastapi import APIRouter, HTTPException
 from app.backend.core.security import get_password_hash
 from app.backend.db import db
 from app.backend.services.email import send_email
+from app.backend.schemas import ForgotPasswordRequest, ResetPasswordRequest
 
 router = APIRouter(prefix="/api/v1/password", tags=["Password Recovery"])
 
 
 @router.post("/forgot")
-async def forgot_password(payload: dict):
-    email = str(payload.get("email", "")).lower().strip()
-
-    if not email:
-        raise HTTPException(status_code=400, detail="Correo requerido")
+async def forgot_password(payload: ForgotPasswordRequest):
+    email = payload.email
 
     user = await db.users.find_one({"email": email})
 
@@ -54,28 +52,13 @@ async def forgot_password(payload: dict):
         body,
     )
 
-    return {
-        "message": "Si el correo existe, se enviarán instrucciones de recuperación.",
-        "dev_token": token,
-    }
+    return {"message": "Si el correo existe, se enviarán instrucciones de recuperación."}
 
 
 @router.post("/reset")
-async def reset_password(payload: dict):
-    token = str(payload.get("token", "")).strip()
-    new_password = str(payload.get("new_password", "")).strip()
-
-    if not token or not new_password:
-        raise HTTPException(
-            status_code=400,
-            detail="Token y nueva contraseña son obligatorios",
-        )
-
-    if len(new_password) < 6:
-        raise HTTPException(
-            status_code=400,
-            detail="La contraseña debe tener al menos 6 caracteres",
-        )
+async def reset_password(payload: ResetPasswordRequest):
+    token = payload.token.strip()
+    new_password = payload.new_password
 
     reset = await db.password_resets.find_one(
         {

@@ -12,6 +12,26 @@ from app.backend.db import db
 ONESIGNAL_NOTIFICATIONS_URL = "https://api.onesignal.com/notifications"
 
 STATUS_MESSAGES = {
+    "Pagado": (
+        "¡Pago confirmado! 💗",
+        "Recibimos tu compra y ya comenzamos a prepararla.",
+    ),
+    "Preparando": (
+        "Estamos preparando tu pedido 📦",
+        "Tu compra está siendo preparada para despacho.",
+    ),
+    "En despacho": (
+        "Tu pedido va en camino 🚚",
+        "Tu compra fue enviada. Revisa su avance en la app.",
+    ),
+    "Entregado": (
+        "¡Pedido entregado! ✨",
+        "Tu compra figura como entregada. Esperamos que la disfrutes.",
+    ),
+    "Cancelado": (
+        "Pedido cancelado",
+        "El pedido figura como cancelado. Contáctanos si necesitas ayuda.",
+    ),
     "Compra realizada": (
         "¡Compra confirmada! 💗",
         "Recibimos tu compra y ya comenzamos a prepararla.",

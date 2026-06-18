@@ -4,9 +4,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from app.backend.core.config import settings
 
+use_tls = settings.mongodb_tls
+if use_tls is None:
+    use_tls = settings.mongodb_url.lower().startswith("mongodb+srv://")
+
 client = AsyncIOMotorClient(
     settings.mongodb_url,
-    tls=True,
+    tls=use_tls,
     serverSelectionTimeoutMS=30000,
 )
 

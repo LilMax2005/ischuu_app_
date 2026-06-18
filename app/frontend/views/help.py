@@ -104,8 +104,8 @@ FAQS = [
         "category": "pedidos",
         "question": "¿Cuáles son las etapas de un pedido?",
         "answer": (
-            "El seguimiento avanza por Compra realizada, Artículo empaquetado, "
-            "Artículo enviado y Artículo entregado."
+            "El seguimiento avanza por Pagado, Preparando, En despacho y "
+            "Entregado. Un pedido también puede aparecer como Cancelado."
         ),
     },
     {

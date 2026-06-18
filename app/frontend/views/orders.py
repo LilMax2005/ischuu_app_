@@ -17,11 +17,18 @@ from app.frontend.views.theme import (
 
 
 ORDER_STEPS = [
-    "Compra realizada",
-    "Artículo empaquetado",
-    "Artículo enviado",
-    "Artículo entregado",
+    "Pagado",
+    "Preparando",
+    "En despacho",
+    "Entregado",
 ]
+
+LEGACY_STATUSES = {
+    "Compra realizada": "Pagado",
+    "Artículo empaquetado": "Preparando",
+    "Artículo enviado": "En despacho",
+    "Artículo entregado": "Entregado",
+}
 
 
 def order_get(order: Any, key: str, default=None):
@@ -56,10 +63,12 @@ def normalize_status(status: str) -> str:
     status = str(status or "").strip()
 
     if status.lower() in ["pagado", "paid", "authorized"]:
-        return "Compra realizada"
+        return "Pagado"
 
-    if status not in ORDER_STEPS:
-        return "Compra realizada"
+    status = LEGACY_STATUSES.get(status, status)
+
+    if status not in [*ORDER_STEPS, "Cancelado"]:
+        return "Pagado"
 
     return status
 
@@ -118,7 +127,7 @@ def build_order_card(order: Any) -> ft.Control:
         str(order_get(order, "created_at", ""))
     )
 
-    raw_status = order_get(order, "status", "Compra realizada")
+    raw_status = order_get(order, "status", "Pagado")
     tracking_status = normalize_status(raw_status)
 
     payment_status = payment_label(
@@ -175,8 +184,9 @@ def build_order_card(order: Any) -> ft.Control:
     total = int(order_get(order, "total", 0))
     points_earned = int(order_get(order, "points_earned", 0))
 
-    current_step_index = ORDER_STEPS.index(tracking_status)
-    progress_value = (current_step_index + 1) / len(ORDER_STEPS)
+    is_cancelled = tracking_status == "Cancelado"
+    current_step_index = -1 if is_cancelled else ORDER_STEPS.index(tracking_status)
+    progress_value = 0 if is_cancelled else (current_step_index + 1) / len(ORDER_STEPS)
 
     return card(
         ft.Column(

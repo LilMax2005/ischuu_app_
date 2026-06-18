@@ -22,10 +22,11 @@ if TYPE_CHECKING:
 
 
 ORDER_STATUSES = [
-    "Compra realizada",
-    "Artículo empaquetado",
-    "Artículo enviado",
-    "Artículo entregado",
+    "Pagado",
+    "Preparando",
+    "En despacho",
+    "Entregado",
+    "Cancelado",
 ]
 
 
@@ -434,7 +435,7 @@ def build_admin_orders(controller: "AppController") -> ft.Control:
 def build_order_admin_card(controller: "AppController", order: dict) -> ft.Control:
     status_dropdown = ft.Dropdown(
         label="Estado del pedido",
-        value=order.get("status", "Compra realizada"),
+        value=order.get("status", "Pagado"),
         options=[ft.dropdown.Option(status) for status in ORDER_STATUSES],
         width=280,
         bgcolor=IschuuColors.SURFACE_ALT,
@@ -446,7 +447,7 @@ def build_order_admin_card(controller: "AppController", order: dict) -> ft.Contr
 
     def update_status(_: ft.ControlEvent) -> None:
         controller.run_async(
-            controller.admin_update_order_status(order.get("id", ""), status_dropdown.value or "Compra realizada")
+            controller.admin_update_order_status(order.get("id", ""), status_dropdown.value or "Pagado")
         )
 
     items = order.get("items", []) or []
@@ -510,7 +511,7 @@ def build_order_admin_card(controller: "AppController", order: dict) -> ft.Contr
                                 ),
                             ],
                         ),
-                        status_pill(order.get("status", "Compra realizada"), "success"),
+                        status_pill(order.get("status", "Pagado"), "success"),
                     ],
                 ),
                 build_summary_row("Total", currency(int(order.get("total", 0))), highlight=True),

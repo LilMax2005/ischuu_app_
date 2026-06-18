@@ -3,15 +3,10 @@ from __future__ import annotations
 FREE_SHIPPING_LIMIT = 25000
 SHIPPING_COST = 3000
 
-# Nueva lógica de puntos
-POINT_EARN_EVERY_CLP = 500      # Cada $500 pagados = 1 punto
-POINT_VALUE_CLP = 25            # 1 punto = $50 de descuento
-
-# Puedes ajustar esto si quieres permitir usar desde 1 punto
-MIN_POINTS_TO_REDEEM = 10       # mínimo 10 puntos para canjear = $500 descuento
-
-# Protección para que el descuento no sea excesivo
-MAX_POINTS_DISCOUNT_RATE = 0.20 # máximo 20% del subtotal
+POINT_EARN_EVERY_CLP = 500       # Cada $500 pagados = 1 punto
+POINT_VALUE_CLP = 25             # 1 punto = $25 de descuento
+MIN_POINTS_TO_REDEEM = 10        # Mínimo 10 puntos = $250 de descuento
+MAX_POINTS_DISCOUNT_RATE = 0.20  # Máximo 20 % del subtotal
 
 PREFERENCE_DISCOUNT_RATE = 0.05
 MAX_PREFERENCE_DISCOUNT = 5000

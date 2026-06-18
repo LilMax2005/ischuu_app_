@@ -436,17 +436,6 @@ class AppController:
 
         return address
 
-    def shipping_address_payload(self) -> dict:
-        return {
-            "recipient": self.shipping_recipient.value or "",
-            "phone": self.shipping_phone.value or "",
-            "region": self.shipping_region.value or "",
-            "comuna": self.shipping_comuna.value or "",
-            "street": self.shipping_street.value or "",
-            "number": self.shipping_number.value or "",
-            "details": self.shipping_details.value or "",
-        }
-
     def show_message(self, message: str, error: bool = False) -> None:
         self.page.snack_bar = ft.SnackBar(
             content=ft.Text(message, color=IschuuColors.ON_PRIMARY),
@@ -468,30 +457,13 @@ class AppController:
             shipping_address=user_data.get("shipping_address", {}) or {},
         )
 
-    def apply_shipping_address_to_fields(self, data: dict | None) -> None:
-        data = data or {}
-
-        self.shipping_recipient.value = data.get("recipient", "")
-        self.shipping_phone.value = data.get("phone", "")
-        self.shipping_region.value = data.get("region", "")
-        self.shipping_comuna.value = data.get("comuna", "")
-        self.shipping_street.value = data.get("street", "")
-        self.shipping_number.value = data.get("number", "")
-        self.shipping_details.value = data.get("details", "")
-
-        self.shipping_address_saved = self.shipping_address_is_complete()
-        self.shipping_address_editing = not self.shipping_address_saved
-
     def is_admin(self) -> bool:
         user = self.state.current_user
 
         if not user:
             return False
 
-        email = getattr(user, "email", "").lower().strip()
-        is_admin = bool(getattr(user, "is_admin", False))
-
-        return is_admin or email == "admin@ischuu.cl"
+        return bool(getattr(user, "is_admin", False))
 
     def render(self) -> None:
         if self.current_section == 5 and not self.is_admin():
@@ -506,47 +478,6 @@ class AppController:
         self.page.navigation_bar = self.navbar
 
         self.page.update()
-
-    def shipping_address_payload(self) -> dict:
-        return {
-            "recipient": self.shipping_recipient.value or "",
-            "phone": self.shipping_phone.value or "",
-            "region": self.shipping_region.value or "",
-            "comuna": self.shipping_comuna.value or "",
-            "street": self.shipping_street.value or "",
-            "number": self.shipping_number.value or "",
-            "details": self.shipping_details.value or "",
-        }
-
-    def shipping_address_is_complete(self) -> bool:
-        data = self.shipping_address_payload()
-
-        required = [
-            "recipient",
-            "phone",
-            "region",
-            "comuna",
-            "street",
-            "number",
-        ]
-
-        return all(str(data.get(field, "")).strip() for field in required)
-
-    def shipping_address_text(self) -> str:
-        data = self.shipping_address_payload()
-
-        street = data.get("street", "").strip()
-        number = data.get("number", "").strip()
-        comuna = data.get("comuna", "").strip()
-        region = data.get("region", "").strip()
-        details = data.get("details", "").strip()
-
-        address = f"{street} {number}, {comuna}, {region}".strip()
-
-        if details:
-            address = f"{address}. Ref: {details}"
-
-        return address
 
     def save_shipping_address_to_file(self) -> None:
         data = self.shipping_address_payload()
@@ -1002,13 +933,8 @@ class AppController:
                 self.show_message("Ingresa tu correo.", error=True)
                 return
 
-            data = await self.api.forgot_password(email)
-            token = data.get("dev_token")
-
-            if token:
-                self.show_message(f"Token generado: {token}")
-            else:
-                self.show_message("Revisa tu correo para recuperar contraseña.")
+            await self.api.forgot_password(email)
+            self.show_message("Si la cuenta existe, recibirás un token por correo.")
 
             self.auth_mode = "reset"
             self.render()
@@ -1056,6 +982,10 @@ class AppController:
 
         if not product:
             self.show_message("Producto no encontrado.", error=True)
+            return
+
+        if int(product.stock) <= 0:
+            self.show_message("Este producto no tiene stock disponible.", error=True)
             return
 
         item = next((x for x in self.state.cart if x.product.id == product_id), None)
@@ -1183,6 +1113,13 @@ class AppController:
             payment_status = await self.api.get_payment_status(token)
             status = str(payment_status.get("status", "")).upper()
             order_created = bool(payment_status.get("order_created", False))
+            requires_review = bool(payment_status.get("requires_manual_review", False))
+
+            if requires_review:
+                self.clear_pending_payment()
+                detail = payment_status.get("fulfillment_error", "El pago requiere revisión manual.")
+                self.show_message(f"Pago recibido, pero el pedido requiere revisión: {detail}", error=True)
+                return
 
             if status == "AUTHORIZED" and order_created:
                 self.clear_cart_file()
