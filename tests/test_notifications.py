@@ -14,11 +14,18 @@ class NotificationEndpointTests(unittest.IsolatedAsyncioTestCase):
         user = {"_id": ObjectId()}
         with patch(
             "app.backend.routers.notifications.send_order_status_push",
-            new=AsyncMock(return_value={"sent": False, "reason": "provider_error"}),
+            new=AsyncMock(
+                return_value={
+                    "sent": False,
+                    "reason": "provider_error",
+                    "provider_detail": "La REST API Key de OneSignal fue rechazada",
+                }
+            ),
         ):
             with self.assertRaises(HTTPException) as context:
                 await test_notification(user)
         self.assertEqual(context.exception.status_code, 503)
+        self.assertIn("REST API Key", context.exception.detail)
 
     async def test_unlinked_phone_is_reported(self):
         user = {"_id": ObjectId()}

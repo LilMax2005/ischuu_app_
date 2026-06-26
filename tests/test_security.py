@@ -9,11 +9,11 @@ from bson import ObjectId
 from fastapi import HTTPException
 
 os.environ.setdefault("MONGODB_URL", "mongodb://localhost:27017")
-os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ["SECRET_KEY"] = "test-secret-key-with-at-least-32-bytes"
 
 from app.backend.dependencies import get_current_active_user, get_current_admin  # noqa: E402
-from app.backend.routers.auth import login, register  # noqa: E402
-from app.backend.schemas import UserCreate  # noqa: E402
+from app.backend.routers.auth import login, refresh_session, register  # noqa: E402
+from app.backend.schemas import RefreshTokenPayload, UserCreate  # noqa: E402
 
 
 class SecurityDependencyTests(unittest.IsolatedAsyncioTestCase):
@@ -67,6 +67,38 @@ class SecurityDependencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(document["is_active"])
         self.assertFalse(document["is_admin"])
         self.assertEqual(document["points"], 0)
+
+    async def test_refresh_token_renews_mobile_session(self):
+        user = {
+            "_id": ObjectId(),
+            "email": "client@example.com",
+            "name": "Cliente",
+            "is_active": True,
+        }
+        payload = RefreshTokenPayload(refresh_token="x" * 20)
+        with patch(
+            "app.backend.routers.auth.decode_refresh_token",
+            new=AsyncMock(return_value=user),
+        ):
+            result = await refresh_session(payload)
+        self.assertTrue(result["access_token"])
+        self.assertTrue(result["refresh_token"])
+        self.assertEqual(result["user"]["email"], user["email"])
+
+    async def test_inactive_user_cannot_refresh_session(self):
+        user = {
+            "_id": ObjectId(),
+            "email": "inactive@example.com",
+            "is_active": False,
+        }
+        payload = RefreshTokenPayload(refresh_token="x" * 20)
+        with patch(
+            "app.backend.routers.auth.decode_refresh_token",
+            new=AsyncMock(return_value=user),
+        ):
+            with self.assertRaises(HTTPException) as context:
+                await refresh_session(payload)
+        self.assertEqual(context.exception.status_code, 403)
 
 
 if __name__ == "__main__":

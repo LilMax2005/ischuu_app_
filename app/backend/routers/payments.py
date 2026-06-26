@@ -105,6 +105,7 @@ async def create_cart_payment(
         "total": totals["total"],
         "amount": totals["total"],
         "status": "CREATED",
+        "payment_method": "Webpay",
         "token": response["token"],
         "webpay_url": response.get("url"),
         "order_created": False,

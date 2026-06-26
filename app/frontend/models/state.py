@@ -14,16 +14,30 @@ class AppState:
 
     search_text: str = ""
     category_filter: str = "Todas"
+    product_page: int = 1
+    product_page_size: int = 10
+    product_total: int = 0
+    product_total_pages: int = 1
+    product_categories: list[str] = field(default_factory=list)
 
     @property
     def categories(self) -> list[str]:
-        categories = sorted(
-            {
-                product.category
-                for product in self.products
-                if getattr(product, "category", "")
-            }
-        )
+        if self.product_categories:
+            categories = sorted(
+                {
+                    category
+                    for category in self.product_categories
+                    if category
+                }
+            )
+        else:
+            categories = sorted(
+                {
+                    product.category
+                    for product in self.products
+                    if getattr(product, "category", "")
+                }
+            )
 
         return ["Todas", *categories]
 

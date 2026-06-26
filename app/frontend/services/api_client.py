@@ -67,6 +67,15 @@ class ApiClient:
             response.raise_for_status()
             return response.json()
 
+    async def refresh_session(self, refresh_token: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/v1/auth/refresh",
+                json={"refresh_token": refresh_token},
+            )
+            response.raise_for_status()
+            return response.json()
+
     # =========================
     # RECUPERACIÓN CONTRASEÑA
     # =========================
@@ -98,10 +107,40 @@ class ApiClient:
     # PRODUCTOS
     # =========================
 
-    async def get_products(self) -> list[dict]:
+    async def get_products(
+        self,
+        search: str = "",
+        category: str = "Todas",
+        page: int = 1,
+        page_size: int = 10,
+    ) -> dict:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
-                f"{self.base_url}/api/v1/products"
+                f"{self.base_url}/api/v1/products",
+                params={
+                    "search": search,
+                    "category": category,
+                    "page": page,
+                    "page_size": page_size,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            if isinstance(data, list):
+                return {
+                    "items": data,
+                    "page": 1,
+                    "page_size": len(data) or page_size,
+                    "total": len(data),
+                    "total_pages": 1,
+                    "categories": sorted({item.get("category", "") for item in data if item.get("category")}),
+                }
+            return data
+
+    async def get_product(self, product_id: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.base_url}/api/v1/products/{product_id}",
             )
             response.raise_for_status()
             return response.json()
@@ -354,14 +393,29 @@ class ApiClient:
     # ADMIN - PEDIDOS
     # =========================
 
-    async def admin_get_orders(self) -> list[dict]:
+    async def admin_get_orders(self, filters: dict | None = None) -> dict:
+        params = {
+            key: value
+            for key, value in (filters or {}).items()
+            if value not in ("", None, "Todos")
+        }
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/admin/orders",
+                params=params,
                 headers=self.headers(),
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            if isinstance(data, list):
+                return {
+                    "items": data,
+                    "page": 1,
+                    "page_size": len(data) or 20,
+                    "total": len(data),
+                    "total_pages": 1,
+                }
+            return data
 
     async def admin_update_order_status(
         self,

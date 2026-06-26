@@ -51,6 +51,29 @@ STATUS_MESSAGES = {
 }
 
 
+def onesignal_error_detail(response: httpx.Response) -> str:
+    if response.status_code == 401:
+        return "La REST API Key de OneSignal fue rechazada"
+    if response.status_code == 403:
+        return "OneSignal rechazó el acceso a esta aplicación"
+
+    try:
+        data = response.json()
+        errors = data.get("errors") if isinstance(data, dict) else None
+        if isinstance(errors, list):
+            detail = "; ".join(str(item) for item in errors)
+        elif errors:
+            detail = str(errors)
+        elif isinstance(data, dict) and data.get("error"):
+            detail = str(data["error"])
+        else:
+            detail = ""
+    except Exception:
+        detail = ""
+
+    return detail[:400] or f"OneSignal respondió con HTTP {response.status_code}"
+
+
 def build_order_push_payload(order: dict, status: str) -> dict | None:
     message = STATUS_MESSAGES.get(status)
     user_id = str(order.get("user_id", "")).strip()
@@ -126,6 +149,29 @@ async def send_order_status_push(order: dict, status: str) -> dict:
             "notification_id": data.get("id", ""),
             "recipients": int(data.get("recipients", 0) or 0),
         }
+    except httpx.HTTPStatusError as exc:
+        detail = onesignal_error_detail(exc.response)
+        print(
+            f"OneSignal rechazó el push del pedido {order.get('_id', '')}: "
+            f"HTTP {exc.response.status_code} - {detail}"
+        )
+        return {
+            "sent": False,
+            "reason": "provider_error",
+            "provider_status": exc.response.status_code,
+            "provider_detail": detail,
+        }
+    except httpx.RequestError as exc:
+        print(f"No se pudo conectar con OneSignal: {exc}")
+        return {
+            "sent": False,
+            "reason": "provider_unavailable",
+            "provider_detail": "No fue posible conectar con OneSignal",
+        }
     except Exception as exc:
         print(f"No se pudo enviar push del pedido {order.get('_id', '')}: {exc}")
-        return {"sent": False, "reason": "provider_error"}
+        return {
+            "sent": False,
+            "reason": "provider_error",
+            "provider_detail": "Error inesperado al enviar la notificación",
+        }

@@ -1,6 +1,6 @@
 [project]
 name = "ischuu_app"
-version = "1.0.1"
+version = "1.0.2"
 requires-python = ">=3.10"
 dependencies = [
     "flet==0.85.2",
@@ -8,6 +8,9 @@ dependencies = [
     "httpx>=0.28.1",
     "python-dotenv>=1.0"
 ]
+
+[tool.flet]
+build_number = 2
 
 [tool.flet.app]
 module = "main"

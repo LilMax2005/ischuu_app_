@@ -48,8 +48,16 @@ def payment_fixture(product_id: ObjectId, user_id: ObjectId) -> dict:
         "total": 13_000,
         "product_amount_paid": 10_000,
         "points_to_spend": 0,
-        "shipping_address": {},
-        "shipping_address_text": "Calle 1",
+        "shipping_address": {
+            "recipient": "Cliente",
+            "phone": "56912345678",
+            "region": "Metropolitana",
+            "comuna": "Santiago",
+            "street": "Alameda",
+            "number": "123",
+            "details": "",
+        },
+        "shipping_address_text": "Alameda 123, Santiago, Metropolitana",
         "order_created": False,
     }
 

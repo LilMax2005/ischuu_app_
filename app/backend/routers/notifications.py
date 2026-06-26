@@ -15,8 +15,12 @@ router = APIRouter(prefix="/api/v1/notifications", tags=["Notifications"])
 @router.get("/config")
 async def notification_config() -> dict:
     configured = bool(settings.onesignal_app_id)
+    delivery_configured = bool(
+        settings.onesignal_app_id and settings.onesignal_rest_api_key
+    )
     return {
         "enabled": configured,
+        "delivery_enabled": delivery_configured,
         "provider": "onesignal" if configured else "",
         "app_id": settings.onesignal_app_id if configured else "",
     }
@@ -33,9 +37,12 @@ async def test_notification(user: dict = Depends(get_current_active_user)) -> di
         "Pagado",
     )
     if not result.get("sent"):
+        provider_detail = str(result.get("provider_detail", "")).strip()
+        reason = str(result.get("reason", "error desconocido"))
+        detail = provider_detail or f"Error de notificaciones: {reason}"
         raise HTTPException(
             status_code=503,
-            detail=f"No se pudo enviar la prueba: {result.get('reason', 'error desconocido')}",
+            detail=detail,
         )
     if int(result.get("recipients", 0)) < 1:
         raise HTTPException(

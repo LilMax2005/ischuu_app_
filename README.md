@@ -12,13 +12,14 @@ Aplicación móvil de comercio electrónico para **Ischuu**, una tienda de blind
 
 | Clientes | Administración |
 | --- | --- |
-| Registro, inicio de sesión y recuperación de contraseña | Resumen de ventas, pedidos, usuarios y stock |
+| Registro, sesión móvil persistente y recuperación de contraseña | Resumen de ventas, pedidos, usuarios y stock |
 | Catálogo con búsqueda y filtro por categoría | Creación, edición y eliminación de productos |
 | Carrito con cálculo de envío y descuentos | Ajuste de inventario y permisos de usuarios |
-| Dirección de despacho persistente | Actualización del seguimiento de pedidos |
+| Dirección con selector de las 16 regiones de Chile | Actualización del seguimiento de pedidos |
 | Pago con Webpay Plus | Exportación de pedidos a Excel |
 | Puntos y descuentos por preferencias | Configuración de enlaces sociales |
 | Historial y seguimiento de pedidos | Avisos por correo y notificaciones push |
+| Soporte directo por WhatsApp y correo | Activación y desactivación de cuentas |
 
 ## Arquitectura
 
@@ -83,6 +84,7 @@ APP_NAME=Ischuu
 SECRET_KEY=reemplazar-por-una-clave-larga-y-aleatoria
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=365
 ADMIN_EMAIL=
 ADMIN_PASSWORD=
 
@@ -181,7 +183,7 @@ El seguimiento administrativo utiliza estos estados:
 
 La API usa el prefijo `/api/v1` y agrupa sus endpoints en:
 
-- `/auth`: registro, acceso, perfil, despacho y preferencias de notificación.
+- `/auth`: registro, acceso, renovación de sesión, perfil, despacho y preferencias de notificación.
 - `/password`: recuperación y cambio de contraseña.
 - `/products`: catálogo público.
 - `/payments`: cotización, inicio, retorno y consulta de pagos Webpay.
@@ -203,7 +205,9 @@ Para habilitar notificaciones móviles de cambios de pedido:
 4. Comprueba en OneSignal que Google Android (FCM) esté configurado para la misma aplicación.
 5. Instala `flet-onesignal`, recompila e instala nuevamente la APK.
 
-La API entrega al cliente solo el App ID público mediante `/api/v1/notifications/config`. La REST API key permanece en el servidor. Cada usuario puede activar los avisos y ejecutar **Perfil → Probar aviso** para verificar permiso, vínculo y entrega.
+La API entrega al cliente solo el App ID público mediante `/api/v1/notifications/config`. La REST API key permanece en el servidor. Después de un registro, inicio de sesión o restauración de sesión, la app ejecuta `OneSignal.login(id_usuario)`; al pulsar **Cerrar sesión**, ejecuta `OneSignal.logout()` y elimina la sesión guardada. De esta forma cada teléfono queda asociado al usuario correcto. Cada usuario puede activar los avisos y ejecutar **Perfil → Probar aviso** para verificar permiso, vínculo y entrega.
+
+La sesión se guarda en el dispositivo y se renueva con `POST /api/v1/auth/refresh`, por lo que cerrar y volver a abrir la app no obliga a ingresar nuevamente. Un usuario desactivado pierde el acceso incluso si conservaba tokens.
 
 ### SMTP
 
@@ -315,7 +319,7 @@ Instala la APK nueva, inicia sesión, activa los avisos y pulsa **Perfil → Pro
 python -m unittest discover -s tests -v
 ```
 
-La suite cubre precios, puntos, permisos, usuarios inactivos, carrito vacío, stock insuficiente, rollback, pagos rechazados, monto alterado e idempotencia. Las pruebas reales de Webpay, SMTP y OneSignal requieren sus respectivos ambientes y credenciales.
+La suite cubre precios, puntos, renovación de sesión, permisos, usuarios inactivos, carrito vacío, stock insuficiente, rollback, pagos rechazados, monto alterado e idempotencia. Las pruebas reales de Webpay, SMTP y OneSignal requieren sus respectivos ambientes y credenciales.
 
 ## Notas de seguridad y desarrollo
 

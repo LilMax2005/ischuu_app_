@@ -3,9 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from bson import ObjectId
+from fastapi import HTTPException
 
+from app.backend.services.preferences import refresh_user_preferences
 from app.backend.services.pricing import earned_points_for_amount
 from app.backend.services.push_notifications import send_order_status_push
+from app.backend.services.shipping import normalize_shipping_address
 
 
 class CheckoutConflictError(RuntimeError):
@@ -61,15 +64,6 @@ async def release_stock(database, reserved: list[dict]) -> None:
         )
 
 
-def user_preference_increments(items: list[dict]) -> dict[str, int]:
-    increments: dict[str, int] = {}
-    for item in items:
-        category = str(item.get("category", "General"))
-        key = f"preferences.{category}"
-        increments[key] = increments.get(key, 0) + int(item.get("quantity", 1))
-    return increments
-
-
 async def create_order_after_authorization(database, payment: dict, transaction: dict) -> dict:
     """Crea exactamente un pedido y descuenta stock de forma condicional.
 
@@ -114,8 +108,7 @@ async def create_order_after_authorization(database, payment: dict, transaction:
     points_earned = earned_points_for_amount(int(payment.get("product_amount_paid", 0)))
     points_to_spend = int(payment.get("points_to_spend", 0))
     points_delta = points_earned - points_to_spend
-    preference_increments = user_preference_increments(payment.get("items", []))
-    user_increments = {"points": points_delta, **preference_increments}
+    shipping_address = {}
 
     try:
         user = await database.users.find_one({"_id": ObjectId(payment["user_id"])})
@@ -124,15 +117,23 @@ async def create_order_after_authorization(database, payment: dict, transaction:
         if int(user.get("points", 0)) < points_to_spend:
             raise CheckoutConflictError("El saldo de puntos cambió antes de confirmar el pago")
 
+        try:
+            shipping_address = normalize_shipping_address(payment.get("shipping_address", {}))
+        except HTTPException as exc:
+            raise CheckoutConflictError(
+                f"No se puede crear el pedido sin dirección de entrega: {exc.detail}"
+            ) from exc
+
         reserved = await reserve_stock(database, payment.get("items", []))
 
-        user_update = await database.users.update_one(
-            {"_id": user["_id"], "points": {"$gte": points_to_spend}},
-            {"$inc": user_increments},
-        )
-        if user_update.modified_count != 1:
-            raise CheckoutConflictError("No fue posible actualizar los puntos del usuario")
-        user_adjusted = True
+        if points_delta != 0 or points_to_spend > 0:
+            user_update = await database.users.update_one(
+                {"_id": user["_id"], "points": {"$gte": points_to_spend}},
+                {"$inc": {"points": points_delta}},
+            )
+            if user_update.modified_count != 1:
+                raise CheckoutConflictError("No fue posible actualizar los puntos del usuario")
+            user_adjusted = True
 
         order = {
             "user_id": payment["user_id"],
@@ -140,8 +141,8 @@ async def create_order_after_authorization(database, payment: dict, transaction:
             "user_name": user.get("name", ""),
             "created_at": datetime.now(timezone.utc).isoformat(),
             "items": payment.get("items", []),
-            "shipping_address": payment.get("shipping_address", {}),
-            "shipping_address_text": payment.get("shipping_address_text", ""),
+            "shipping_address": shipping_address,
+            "shipping_address_text": shipping_address.get("full_address", ""),
             "subtotal": int(payment.get("subtotal", 0)),
             "shipping": int(payment.get("shipping", 0)),
             "discount": int(payment.get("discount", 0)),
@@ -149,6 +150,7 @@ async def create_order_after_authorization(database, payment: dict, transaction:
             "status": "Pagado",
             "status_history": [],
             "payment_status": "paid",
+            "payment_method": payment.get("payment_method", "Webpay"),
             "buy_order": payment.get("buy_order", ""),
             "webpay_token": payment["token"],
             "authorization_code": transaction.get("authorization_code"),
@@ -178,7 +180,7 @@ async def create_order_after_authorization(database, payment: dict, transaction:
         if user_adjusted:
             await database.users.update_one(
                 {"_id": ObjectId(payment["user_id"])},
-                {"$inc": {key: -value for key, value in user_increments.items()}},
+                {"$inc": {"points": -points_delta}},
             )
         if reserved:
             await release_stock(database, reserved)
@@ -193,6 +195,11 @@ async def create_order_after_authorization(database, payment: dict, transaction:
             },
         )
         raise
+
+    try:
+        await refresh_user_preferences(database, user["_id"])
+    except Exception as exc:
+        print(f"No se pudo actualizar preferencias del usuario {user.get('_id')}: {exc}")
 
     await send_order_status_push(order, "Pagado")
     return order

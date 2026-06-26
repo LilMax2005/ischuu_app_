@@ -6,9 +6,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "Ischuu"
 
-    secret_key: str = "CAMBIAR_SECRET_KEY"
+    secret_key: str = "CAMBIAR_SECRET_KEY_POR_UNA_CLAVE_SEGURA_DE_32_BYTES"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
+    refresh_token_expire_days: int = 365
 
     mongodb_url: str
     mongodb_database: str = "ischuu"

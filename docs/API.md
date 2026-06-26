@@ -10,7 +10,8 @@ Las rutas privadas usan `Authorization: Bearer <token>`. Un usuario desactivado 
 | Método | Ruta | Acceso | Descripción |
 | --- | --- | --- | --- |
 | POST | `/auth/register` | Público | Crea una cuenta activa |
-| POST | `/auth/login` | Público | Recibe formulario `username` y `password`; devuelve JWT |
+| POST | `/auth/login` | Público | Recibe formulario `username` y `password`; devuelve tokens de acceso y renovación |
+| POST | `/auth/refresh` | Refresh token | Renueva la sesión móvil sin pedir nuevamente la contraseña |
 | GET | `/auth/me` | Usuario activo | Perfil, puntos, dirección y permisos |
 | GET | `/auth/me/points` | Usuario activo | Saldo de puntos |
 | PATCH | `/auth/me/shipping-address` | Usuario activo | Guarda dirección de despacho |

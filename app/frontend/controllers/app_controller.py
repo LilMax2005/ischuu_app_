@@ -29,6 +29,27 @@ from app.frontend.views.theme import (
 
 PREF_CART = "ischuu.cart"
 PREF_PENDING_PAYMENT = "ischuu.pending_payment"
+PREF_ACCESS_TOKEN = "ischuu.auth.access_token"
+PREF_REFRESH_TOKEN = "ischuu.auth.refresh_token"
+
+CHILE_REGIONS = [
+    "Región de Arica y Parinacota",
+    "Región de Tarapacá",
+    "Región de Antofagasta",
+    "Región de Atacama",
+    "Región de Coquimbo",
+    "Región de Valparaíso",
+    "Región Metropolitana",
+    "Región del Libertador General Bernardo O'Higgins",
+    "Región del Maule",
+    "Región de Ñuble",
+    "Región del Biobío",
+    "Región de La Araucanía",
+    "Región de Los Ríos",
+    "Región de Los Lagos",
+    "Región de Aysén del General Carlos Ibáñez del Campo",
+    "Región de Magallanes y de la Antártica Chilena",
+]
 
 
 class AppController:
@@ -38,6 +59,8 @@ class AppController:
         self.state = AppState()
         self.preferences = ft.SharedPreferences()
         self.page.services.append(self.preferences)
+        self.url_launcher = ft.UrlLauncher()
+        self.page.services.append(self.url_launcher)
         self.page.on_app_lifecycle_state_change = self.on_app_lifecycle_state_change
         self.is_light_theme = True
         apply_palette(self.is_light_theme)
@@ -74,11 +97,19 @@ class AppController:
             **input_style(),
         )
 
-        self.shipping_region = ft.TextField(
+        self.shipping_region = ft.Dropdown(
             label="Región",
             value="Región Metropolitana",
-            prefix_icon=ft.Icons.MAP_OUTLINED,
-            **input_style(),
+            options=[ft.dropdown.Option(region) for region in CHILE_REGIONS],
+            enable_search=True,
+            menu_height=360,
+            filled=True,
+            bgcolor=IschuuColors.SURFACE_ALT,
+            color=IschuuColors.TEXT,
+            border_color=IschuuColors.BORDER,
+            focused_border_color=IschuuColors.PRIMARY_STRONG,
+            border_radius=14,
+            label_style=ft.TextStyle(color=IschuuColors.TEXT_MUTED),
         )
 
         self.shipping_comuna = ft.TextField(
@@ -145,6 +176,119 @@ class AppController:
             border_radius=14,
         )
 
+        self.catalog_page_size_dropdown = ft.Dropdown(
+            label="Productos por página",
+            value=str(self.state.product_page_size),
+            options=[
+                ft.dropdown.Option("10"),
+                ft.dropdown.Option("20"),
+                ft.dropdown.Option("30"),
+                ft.dropdown.Option("50"),
+            ],
+            on_select=self.on_catalog_page_size_change,
+            width=190,
+            bgcolor=IschuuColors.SURFACE_ALT,
+            color=IschuuColors.TEXT,
+            border_color=IschuuColors.BORDER,
+            focused_border_color=IschuuColors.PRIMARY_STRONG,
+            border_radius=14,
+        )
+
+        self.admin_order_search = ft.TextField(
+            label="Buscar pedido",
+            hint_text="ID, cliente, correo, estado o producto",
+            prefix_icon=ft.Icons.SEARCH,
+            **input_style(),
+        )
+        self.admin_order_status_filter = ft.Dropdown(
+            label="Estado",
+            value="Todos",
+            options=[ft.dropdown.Option("Todos")],
+            width=190,
+            bgcolor=IschuuColors.SURFACE_ALT,
+            color=IschuuColors.TEXT,
+            border_color=IschuuColors.BORDER,
+            focused_border_color=IschuuColors.PRIMARY_STRONG,
+            border_radius=14,
+        )
+        self.admin_order_payment_filter = ft.Dropdown(
+            label="Medio de pago",
+            value="Todos",
+            options=[
+                ft.dropdown.Option("Todos"),
+                ft.dropdown.Option("Webpay"),
+            ],
+            width=190,
+            bgcolor=IschuuColors.SURFACE_ALT,
+            color=IschuuColors.TEXT,
+            border_color=IschuuColors.BORDER,
+            focused_border_color=IschuuColors.PRIMARY_STRONG,
+            border_radius=14,
+        )
+        self.admin_order_product_filter = ft.TextField(
+            label="Producto",
+            prefix_icon=ft.Icons.INVENTORY_2_OUTLINED,
+            **input_style(),
+        )
+        self.admin_order_category_filter = ft.TextField(
+            label="Categoría producto",
+            prefix_icon=ft.Icons.CATEGORY_OUTLINED,
+            **input_style(),
+        )
+        self.admin_order_date_filter = ft.TextField(
+            label="Fecha exacta",
+            hint_text="YYYY-MM-DD",
+            prefix_icon=ft.Icons.EVENT_OUTLINED,
+            width=190,
+            **input_style(),
+        )
+        self.admin_order_start_date_filter = ft.TextField(
+            label="Desde",
+            hint_text="YYYY-MM-DD",
+            prefix_icon=ft.Icons.DATE_RANGE_OUTLINED,
+            width=190,
+            **input_style(),
+        )
+        self.admin_order_end_date_filter = ft.TextField(
+            label="Hasta",
+            hint_text="YYYY-MM-DD",
+            prefix_icon=ft.Icons.DATE_RANGE_OUTLINED,
+            width=190,
+            **input_style(),
+        )
+        self.admin_order_period_filter = ft.Dropdown(
+            label="Periodo",
+            value="",
+            options=[
+                ft.dropdown.Option(key="", text="Manual"),
+                ft.dropdown.Option("today", "Hoy"),
+                ft.dropdown.Option("week", "Semana actual"),
+                ft.dropdown.Option("month", "Mes actual"),
+                ft.dropdown.Option("year", "Año"),
+            ],
+            width=190,
+            bgcolor=IschuuColors.SURFACE_ALT,
+            color=IschuuColors.TEXT,
+            border_color=IschuuColors.BORDER,
+            focused_border_color=IschuuColors.PRIMARY_STRONG,
+            border_radius=14,
+        )
+        self.admin_order_year_filter = ft.TextField(
+            label="Año",
+            hint_text="2026",
+            prefix_icon=ft.Icons.CALENDAR_MONTH_OUTLINED,
+            keyboard_type=ft.KeyboardType.NUMBER,
+            input_filter=ft.NumbersOnlyInputFilter(),
+            width=140,
+            **input_style(),
+        )
+        self.admin_orders_meta: dict[str, Any] = {
+            "page": 1,
+            "page_size": 20,
+            "total": 0,
+            "total_pages": 1,
+        }
+
         self.use_points_switch = ft.Switch(
             label="Usar puntos disponibles",
             value=False,
@@ -173,12 +317,18 @@ class AppController:
         text_fields = [
             self.shipping_recipient,
             self.shipping_phone,
-            self.shipping_region,
             self.shipping_comuna,
             self.shipping_street,
             self.shipping_number,
             self.shipping_details,
             self.search_field,
+            self.admin_order_search,
+            self.admin_order_product_filter,
+            self.admin_order_category_filter,
+            self.admin_order_date_filter,
+            self.admin_order_start_date_filter,
+            self.admin_order_end_date_filter,
+            self.admin_order_year_filter,
         ]
 
         for text_field in text_fields:
@@ -190,6 +340,24 @@ class AppController:
         self.category_dropdown.border_color = IschuuColors.BORDER
         self.category_dropdown.focused_border_color = IschuuColors.PRIMARY_STRONG
         self.category_dropdown.label_style = ft.TextStyle(color=IschuuColors.TEXT_MUTED)
+
+        for dropdown in [
+            self.catalog_page_size_dropdown,
+            self.admin_order_status_filter,
+            self.admin_order_payment_filter,
+            self.admin_order_period_filter,
+        ]:
+            dropdown.bgcolor = IschuuColors.SURFACE_ALT
+            dropdown.color = IschuuColors.TEXT
+            dropdown.border_color = IschuuColors.BORDER
+            dropdown.focused_border_color = IschuuColors.PRIMARY_STRONG
+            dropdown.label_style = ft.TextStyle(color=IschuuColors.TEXT_MUTED)
+
+        self.shipping_region.bgcolor = IschuuColors.SURFACE_ALT
+        self.shipping_region.color = IschuuColors.TEXT
+        self.shipping_region.border_color = IschuuColors.BORDER
+        self.shipping_region.focused_border_color = IschuuColors.PRIMARY_STRONG
+        self.shipping_region.label_style = ft.TextStyle(color=IschuuColors.TEXT_MUTED)
 
     def toggle_theme(self) -> None:
         self.is_light_theme = not self.is_light_theme
@@ -289,20 +457,43 @@ class AppController:
             await self.onesignal.user.set_language("es")
 
             if bool(user.notifications_enabled):
-                granted = await self.onesignal.notifications.request_permission(
-                    fallback_to_settings=True
-                )
+                granted = await self.onesignal.notifications.get_permission()
+                if (
+                    not granted
+                    and await self.onesignal.notifications.can_request_permission()
+                ):
+                    granted = await self.onesignal.notifications.request_permission(
+                        fallback_to_settings=False
+                    )
                 self.push_permission_granted = bool(granted)
                 if granted:
                     await self.onesignal.user.opt_in_push()
-                    opted_in = await self.onesignal.user.is_push_opted_in()
-                    subscription_id = await self.onesignal.user.get_push_subscription_id()
-                    if opted_in and subscription_id:
+                    linked = False
+                    for _attempt in range(6):
+                        external_id = await self.onesignal.user.get_external_id()
+                        opted_in = await self.onesignal.user.is_push_opted_in()
+                        subscription_id = (
+                            await self.onesignal.user.get_push_subscription_id()
+                        )
+                        linked = bool(
+                            external_id == str(user.id)
+                            and opted_in
+                            and subscription_id
+                        )
+                        if linked:
+                            break
+                        await asyncio.sleep(0.5)
+
+                    if linked:
                         self.push_status_message = "Notificaciones activas en este teléfono."
                     else:
-                        self.push_status_message = "OneSignal aún no asignó una suscripción al teléfono."
+                        self.push_status_message = (
+                            "OneSignal aún está vinculando esta cuenta con el teléfono."
+                        )
                 else:
-                    self.push_status_message = "Android no autorizó las notificaciones."
+                    self.push_status_message = (
+                        "Android no autorizó las notificaciones. Actívalas desde Guardar."
+                    )
             else:
                 await self.onesignal.user.opt_out_push()
                 self.push_permission_granted = False
@@ -463,15 +654,33 @@ class AppController:
     def open_help_whatsapp(self) -> None:
         phone = "56961934594"
         message = "Hola, necesito ayuda con la aplicación Ischuu."
-        url = f"https://wa.me/{phone}?text={quote(message)}"
+        url = f"https://wa.me/{phone}?text={quote(message, safe='')}"
 
-        self.page.launch_url(url)
+        self.run_async(self.launch_external_url(url, "WhatsApp"))
 
     def open_help_email(self) -> None:
         email = "soporte@ischuu.cl"
         subject = "Solicitud de ayuda - Ischuu"
+        body = "Hola, necesito ayuda con la aplicación Ischuu."
 
-        self.page.launch_url(f"mailto:{email}?subject={quote(subject)}")
+        url = (
+            f"mailto:{email}?subject={quote(subject, safe='')}"
+            f"&body={quote(body, safe='')}"
+        )
+        self.run_async(self.launch_external_url(url, "correo"))
+
+    async def launch_external_url(self, url: str, channel: str) -> None:
+        try:
+            await self.url_launcher.launch_url(
+                url,
+                mode=ft.LaunchMode.EXTERNAL_APPLICATION,
+            )
+        except Exception as exc:
+            print(f"No se pudo abrir {channel}: {exc}")
+            self.show_message(
+                f"No se encontró una aplicación para abrir {channel}.",
+                error=True,
+            )
 
     def shipping_address_payload(self) -> dict:
         return {
@@ -497,6 +706,33 @@ class AppController:
         ]
 
         return all(str(data.get(field, "")).strip() for field in required)
+
+    def shipping_address_validation_message(self) -> str:
+        data = self.shipping_address_payload()
+        labels = {
+            "recipient": "Nombre de quien recibe",
+            "phone": "Teléfono de contacto",
+            "region": "Ciudad o región",
+            "comuna": "Comuna",
+            "street": "Calle o dirección",
+            "number": "Número",
+        }
+        missing = [
+            label
+            for field, label in labels.items()
+            if not str(data.get(field, "")).strip()
+        ]
+        if missing:
+            return f"Faltan datos de despacho: {', '.join(missing)}."
+
+        phone = str(data.get("phone", "")).strip()
+        number = str(data.get("number", "")).strip()
+        if not phone.isdigit():
+            return "El teléfono de contacto debe contener solamente números."
+        if not number.isdigit():
+            return "El número de la dirección debe contener solamente números."
+
+        return ""
 
     def shipping_address_text(self) -> str:
         data = self.shipping_address_payload()
@@ -546,11 +782,27 @@ class AppController:
             name=user_data.get("name", ""),
             email=user_data.get("email", ""),
             points=int(user_data.get("points", 0)),
+            preferences=user_data.get("preferences", {}) or {},
             favorite_categories=user_data.get("favorite_categories", []),
+            preference_stats=user_data.get("preference_stats", {}) or {},
             notifications_enabled=bool(user_data.get("notifications_enabled", True)),
             is_admin=bool(user_data.get("is_admin", False)),
             is_active=bool(user_data.get("is_active", True)),
             shipping_address=user_data.get("shipping_address", {}) or {},
+        )
+
+    def product_from_dict(self, data: dict) -> Product:
+        return Product(
+            id=data["id"],
+            name=data["name"],
+            series=data.get("series", ""),
+            price=int(data.get("price", 0)),
+            stock=int(data.get("stock", 0)),
+            category=data.get("category", "General"),
+            rarity=data.get("rarity", "Común"),
+            description=data.get("description", ""),
+            is_original=bool(data.get("is_original", True)),
+            image=data.get("image_url", ""),
         )
 
     def is_admin(self) -> bool:
@@ -593,9 +845,10 @@ class AppController:
             )
             return
 
-        if not self.shipping_address_is_complete():
+        validation_message = self.shipping_address_validation_message()
+        if validation_message:
             self.show_message(
-                "Completa los datos obligatorios de despacho.",
+                validation_message,
                 error=True,
             )
             return
@@ -604,7 +857,7 @@ class AppController:
             updated_user = await self.api.update_my_shipping_address(
                 self.shipping_address_payload()
             )
-
+            self.state.current_user = self.user_from_dict(updated_user)
             self.apply_shipping_address_to_fields(
                 getattr(self.state.current_user, "shipping_address", {}) or {}
             )
@@ -655,6 +908,87 @@ class AppController:
         self.current_section = 0
         return build_store_view(self)
 
+    async def persist_session(
+        self,
+        access_token: str,
+        refresh_token: str | None = None,
+    ) -> None:
+        await self.preferences.set(PREF_ACCESS_TOKEN, access_token)
+        if refresh_token:
+            await self.preferences.set(PREF_REFRESH_TOKEN, refresh_token)
+        else:
+            await self.preferences.remove(PREF_REFRESH_TOKEN)
+
+    async def clear_persisted_session(self) -> None:
+        await self.preferences.remove(PREF_ACCESS_TOKEN)
+        await self.preferences.remove(PREF_REFRESH_TOKEN)
+
+    async def apply_authenticated_user(self, user_data: dict) -> None:
+        self.state.current_user = self.user_from_dict(user_data)
+        self.apply_shipping_address_to_fields(
+            getattr(self.state.current_user, "shipping_address", {}) or {}
+        )
+        await self.activate_push_for_current_user()
+        await self.load_orders()
+        await self.check_pending_payment(show_if_empty=False)
+
+        if self.is_admin():
+            await self.load_admin_data()
+
+        self.navbar = build_navigation_bar(self)
+        self.page.navigation_bar = self.navbar
+
+    async def restore_session(self) -> bool:
+        access_value = await self.preferences.get(PREF_ACCESS_TOKEN)
+        refresh_value = await self.preferences.get(PREF_REFRESH_TOKEN)
+        access_token = str(access_value or "").strip()
+        refresh_token = str(refresh_value or "").strip()
+
+        if not access_token and not refresh_token:
+            return False
+
+        user_data: dict | None = None
+        if access_token:
+            self.api.set_token(access_token)
+            try:
+                user_data = await self.api.get_me()
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 403:
+                    await self.clear_persisted_session()
+                    await self.disconnect_push_user()
+                    self.api.set_token(None)
+                    self.show_message(
+                        self.http_error_message(exc, "Tu cuenta no está activa."),
+                        error=True,
+                    )
+                    return False
+                if exc.response.status_code != 401:
+                    raise
+
+        if user_data is None and refresh_token:
+            try:
+                refreshed = await self.api.refresh_session(refresh_token)
+                access_token = str(refreshed["access_token"])
+                refresh_token = str(refreshed.get("refresh_token", refresh_token))
+                self.api.set_token(access_token)
+                await self.persist_session(access_token, refresh_token)
+                user_data = refreshed["user"]
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code in {400, 401, 403, 404, 422}:
+                    await self.clear_persisted_session()
+                    await self.disconnect_push_user()
+                    self.api.set_token(None)
+                    return False
+                raise
+
+        if user_data is None:
+            await self.clear_persisted_session()
+            self.api.set_token(None)
+            return False
+
+        await self.apply_authenticated_user(user_data)
+        return True
+
     async def startup_load(self) -> None:
         await self.setup_push_notifications()
 
@@ -663,12 +997,41 @@ class AppController:
             await self.load_cart_from_file()
             self.load_shipping_address_from_file()
             self.refresh_product_list()
-            self.render()
         except Exception as exc:
             self.show_message(f"No se pudo cargar catálogo: {exc}", error=True)
 
-    async def load_products(self) -> None:
-        data = await self.api.get_products()
+        try:
+            await self.restore_session()
+        except (httpx.RequestError, TimeoutError) as exc:
+            print(f"No se pudo restaurar la sesión por un problema de red: {exc}")
+            self.push_status_message = (
+                "La sesión sigue guardada; se restaurará cuando vuelva la conexión."
+            )
+        except Exception as exc:
+            print(f"No se pudo restaurar la sesión: {exc}")
+
+        self.render()
+
+    async def load_products(self, page: int | None = None) -> None:
+        if page is not None:
+            self.state.product_page = max(1, int(page))
+
+        data = await self.api.get_products(
+            search=self.state.search_text,
+            category=self.state.category_filter,
+            page=self.state.product_page,
+            page_size=self.state.product_page_size,
+        )
+        if isinstance(data, list):
+            data = {
+                "items": data,
+                "page": 1,
+                "page_size": len(data) or self.state.product_page_size,
+                "total": len(data),
+                "total_pages": 1,
+                "categories": [],
+            }
+        items = data.get("items", [])
         self.state.products = [
             Product(
                 id=p["id"],
@@ -682,13 +1045,20 @@ class AppController:
                 is_original=bool(p.get("is_original", True)),
                 image=p.get("image_url", ""),
             )
-            for p in data
+            for p in items
         ]
+        self.state.product_page = int(data.get("page", self.state.product_page))
+        self.state.product_page_size = int(data.get("page_size", self.state.product_page_size))
+        self.state.product_total = int(data.get("total", len(items)))
+        self.state.product_total_pages = max(1, int(data.get("total_pages", 1)))
+        self.state.product_categories = data.get("categories", []) or []
 
         self.category_dropdown.options = [
             ft.dropdown.Option(category)
             for category in self.state.categories
         ]
+        self.category_dropdown.value = self.state.category_filter
+        self.catalog_page_size_dropdown.value = str(self.state.product_page_size)
 
     async def load_orders(self) -> None:
         if not self.state.current_user:
@@ -738,6 +1108,82 @@ class AppController:
 
         self.product_list.controls = cards
 
+    async def reload_catalog(self, page: int | None = None) -> None:
+        await self.load_products(page=page)
+        self.refresh_product_list()
+        self.render()
+
+    def set_catalog_page(self, page: int) -> None:
+        page = max(1, min(int(page), int(self.state.product_total_pages or 1)))
+        if page == self.state.product_page:
+            return
+        self.run_async(self.reload_catalog(page=page))
+
+    def on_catalog_page_size_change(self, e) -> None:
+        try:
+            self.state.product_page_size = int(e.control.value or 10)
+        except ValueError:
+            self.state.product_page_size = 10
+        self.state.product_page = 1
+        self.run_async(self.reload_catalog(page=1))
+
+    def admin_order_filters(self, page: int | None = None) -> dict:
+        year_value = str(self.admin_order_year_filter.value or "").strip()
+        filters = {
+            "search": self.admin_order_search.value or "",
+            "status": self.admin_order_status_filter.value or "",
+            "payment_method": self.admin_order_payment_filter.value or "",
+            "product": self.admin_order_product_filter.value or "",
+            "category": self.admin_order_category_filter.value or "",
+            "date": self.admin_order_date_filter.value or "",
+            "start_date": self.admin_order_start_date_filter.value or "",
+            "end_date": self.admin_order_end_date_filter.value or "",
+            "period": self.admin_order_period_filter.value or "",
+            "page": page or self.admin_orders_meta.get("page", 1),
+            "page_size": self.admin_orders_meta.get("page_size", 20),
+        }
+        if year_value:
+            filters["year"] = year_value
+        return filters
+
+    async def load_admin_orders(self, page: int | None = None) -> None:
+        data = await self.api.admin_get_orders(self.admin_order_filters(page=page))
+        self.admin_orders = data.get("items", [])
+        self.admin_orders_meta = {
+            "page": int(data.get("page", 1)),
+            "page_size": int(data.get("page_size", 20)),
+            "total": int(data.get("total", len(self.admin_orders))),
+            "total_pages": max(1, int(data.get("total_pages", 1))),
+        }
+
+    async def reload_admin_orders(self, page: int | None = None) -> None:
+        await self.load_admin_orders(page=page or 1)
+        self.render()
+
+    def apply_admin_order_filters(self) -> None:
+        self.admin_orders_meta["page"] = 1
+        self.run_async(self.reload_admin_orders(page=1))
+
+    def clear_admin_order_filters(self) -> None:
+        self.admin_order_search.value = ""
+        self.admin_order_status_filter.value = "Todos"
+        self.admin_order_payment_filter.value = "Todos"
+        self.admin_order_product_filter.value = ""
+        self.admin_order_category_filter.value = ""
+        self.admin_order_date_filter.value = ""
+        self.admin_order_start_date_filter.value = ""
+        self.admin_order_end_date_filter.value = ""
+        self.admin_order_period_filter.value = ""
+        self.admin_order_year_filter.value = ""
+        self.admin_orders_meta["page"] = 1
+        self.run_async(self.reload_admin_orders(page=1))
+
+    def set_admin_orders_page(self, page: int) -> None:
+        page = max(1, min(int(page), int(self.admin_orders_meta.get("total_pages", 1))))
+        if page == int(self.admin_orders_meta.get("page", 1)):
+            return
+        self.run_async(self.reload_admin_orders(page=page))
+
     def save_cart_to_file(self) -> None:
         self.run_async(self._save_cart_to_preferences())
 
@@ -762,6 +1208,13 @@ class AppController:
                     (p for p in self.state.products if p.id == row.get("product_id")),
                     None,
                 )
+                if product is None and row.get("product_id"):
+                    try:
+                        product = self.product_from_dict(
+                            await self.api.get_product(str(row.get("product_id")))
+                        )
+                    except Exception:
+                        product = None
                 if product:
                     self.state.cart.append(
                         CartItem(
@@ -809,6 +1262,31 @@ class AppController:
             {"product_id": item.product.id, "quantity": item.quantity}
             for item in self.state.cart
         ]
+
+    async def refresh_cart_products_from_backend(self) -> list[str]:
+        warnings: list[str] = []
+
+        for item in list(self.state.cart):
+            try:
+                product = self.product_from_dict(
+                    await self.api.get_product(item.product.id)
+                )
+            except Exception:
+                continue
+
+            item.product = product
+            if int(product.stock) <= 0:
+                warnings.append(f"{product.name} está sin stock.")
+            elif item.quantity > int(product.stock):
+                item.quantity = int(product.stock)
+                warnings.append(
+                    f"{product.name} ahora tiene solo {product.stock} unidades disponibles."
+                )
+
+        if warnings:
+            self.save_cart_to_file()
+
+        return warnings
 
     async def refresh_cart_quote(self) -> None:
         self.cart_quote_box.controls.clear()
@@ -919,9 +1397,15 @@ class AppController:
             )
 
         except Exception as exc:
+            message = (
+                self.http_error_message(exc, "No se pudo calcular el total desde el backend.")
+                if isinstance(exc, httpx.HTTPStatusError)
+                else "No se pudo calcular el total desde el backend."
+            )
             subtotal = int(self.state.cart_subtotal)
             shipping = int(self.state.shipping_cost)
             total = int(self.state.checkout_total)
+            self.cart_quote = {}
 
             self.cart_quote_box.controls = [
                 self.quote_row("Productos", str(self.state.cart_count)),
@@ -931,14 +1415,14 @@ class AppController:
                 self.quote_row("Descuento puntos", f"-{currency(0)}"),
                 self.quote_row("Total a pagar", currency(total), True),
                 ft.Text(
-                    "No se pudo calcular descuentos desde el backend.",
-                    color=IschuuColors.TEXT_MUTED,
+                    message,
+                    color=IschuuColors.DANGER,
                     size=12,
                 ),
             ]
 
             self.show_message(
-                f"No se pudo calcular descuento: {exc}",
+                message,
                 error=True,
             )
 
@@ -976,23 +1460,11 @@ class AppController:
             self.set_auth_feedback()
             data = await self.api.login(email, password)
             self.api.set_token(data["access_token"])
-
-            user_data = data["user"]
-            self.state.current_user = self.user_from_dict(user_data)
-
-            self.apply_shipping_address_to_fields(
-                getattr(self.state.current_user, "shipping_address", {}) or {}
+            await self.persist_session(
+                str(data["access_token"]),
+                str(data.get("refresh_token", "")) or None,
             )
-
-            await self.activate_push_for_current_user()
-            await self.load_orders()
-            await self.check_pending_payment(show_if_empty=False)
-
-            if self.is_admin():
-                await self.load_admin_data()
-
-            self.navbar = build_navigation_bar(self)
-            self.page.navigation_bar = self.navbar
+            await self.apply_authenticated_user(data["user"])
             self.auth_mode = "login"
 
             self.show_message(success_message)
@@ -1099,7 +1571,17 @@ class AppController:
             self.show_message(f"No se pudo cambiar contraseña: {exc}", error=True)
 
     def handle_logout(self) -> None:
-        self.run_async(self.disconnect_push_user())
+        self.run_async(self.perform_logout())
+
+    async def perform_logout(self) -> None:
+        try:
+            await self.disconnect_push_user()
+        finally:
+            try:
+                await self.clear_persisted_session()
+            except Exception as exc:
+                print(f"No se pudo borrar la sesión guardada: {exc}")
+
         self.state.current_user = None
         self.state.orders = []
         self.admin_summary = {}
@@ -1163,6 +1645,10 @@ class AppController:
                 if cart_item.product.id != product_id
             ]
 
+        elif item.product.stock <= 0:
+            self.show_message("Este producto quedó sin stock. Elimínalo del carrito para continuar.", error=True)
+            return
+
         elif new_quantity > item.product.stock:
             self.show_message("Cantidad superior al stock disponible.", error=True)
             return
@@ -1198,15 +1684,23 @@ class AppController:
             return
 
         try:
-            shipping_address = self.shipping_address_payload()
-
-            if not self.shipping_address_is_complete():
+            validation_message = self.shipping_address_validation_message()
+            if validation_message:
                 self.shipping_address_editing = True
                 self.shipping_address_saved = False
                 self.show_message(
-                    "Debes ingresar una dirección de despacho antes de pagar.",
+                    "Antes de continuar con el pago, debes registrar una dirección de entrega. "
+                    + validation_message,
                     error=True,
                 )
+                self.current_section = 1
+                self.render()
+                return
+
+            stock_warnings = await self.refresh_cart_products_from_backend()
+            if stock_warnings:
+                self.show_message(stock_warnings[0], error=True)
+                await self.refresh_cart_quote()
                 self.render()
                 return
 
@@ -1227,6 +1721,11 @@ class AppController:
 
             self.run_async(self.monitor_pending_payment())
 
+        except httpx.HTTPStatusError as exc:
+            self.show_message(
+                self.http_error_message(exc, "No se pudo iniciar Webpay."),
+                error=True,
+            )
         except Exception as exc:
             self.show_message(f"No se pudo iniciar Webpay: {exc}", error=True)
 
@@ -1312,6 +1811,10 @@ class AppController:
     async def on_app_lifecycle_state_change(self, e) -> None:
         state = str(getattr(e, "data", "") or "").lower()
         if "resume" in state:
+            try:
+                await self.restore_session()
+            except Exception as exc:
+                print(f"No se pudo actualizar la sesión al volver a la app: {exc}")
             await self.check_pending_payment(show_if_empty=False)
 
     async def load_admin_data(self) -> None:
@@ -1321,7 +1824,12 @@ class AppController:
         self.admin_summary = await self.api.admin_get_summary()
         self.admin_users = await self.api.admin_get_users()
         self.admin_products = await self.api.admin_get_products()
-        self.admin_orders = await self.api.admin_get_orders()
+        statuses = self.admin_summary.get("statuses", []) or []
+        self.admin_order_status_filter.options = [
+            ft.dropdown.Option("Todos"),
+            *[ft.dropdown.Option(status) for status in statuses],
+        ]
+        await self.load_admin_orders(page=int(self.admin_orders_meta.get("page", 1)))
 
         try:
             self.admin_settings = await self.api.admin_get_settings()
@@ -1457,13 +1965,13 @@ class AppController:
 
     def on_search(self, e) -> None:
         self.state.search_text = e.control.value or ""
-        self.refresh_product_list()
-        self.page.update()
+        self.state.product_page = 1
+        self.run_async(self.reload_catalog(page=1))
 
     def on_category_change(self, e) -> None:
         self.state.category_filter = e.control.value or "Todas"
-        self.refresh_product_list()
-        self.page.update()
+        self.state.product_page = 1
+        self.run_async(self.reload_catalog(page=1))
 
     def on_nav_change(self, e) -> None:
         selected_index = int(e.control.selected_index)

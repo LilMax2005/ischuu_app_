@@ -13,6 +13,7 @@ Este documento relaciona los requisitos solicitados con el código actual. Los e
 | --- | --- | --- | --- |
 | Verificado | Registro de usuarios | `routers/auth.py`, `schemas.py`: registro validado y correo único | `POST /api/v1/auth/register`; repetir correo debe responder 409 |
 | Corregido | Inicio de sesión | `routers/auth.py`: respuesta 401 consistente y control de cuenta activa | `POST /api/v1/auth/login` con credenciales válidas, inválidas e inactivas |
+| Implementado | Sesión móvil persistente | `core/security.py`, `routers/auth.py`, `frontend/services/api_client.py` y `app_controller.py`: refresh token, almacenamiento local y restauración automática | Iniciar sesión, cerrar completamente el APK y volver a abrirlo; el perfil debe seguir activo |
 | Verificado | Consultar puntos | `routers/auth.py`: `/me` mantiene los puntos; se agregó `/me/points` | Autenticarse y ejecutar `GET /api/v1/auth/me/points` |
 | Corregido | Bloquear usuarios inactivos | `dependencies.py`: `get_current_active_user` protege todas las acciones privadas | Usar un token emitido antes de desactivar la cuenta; las rutas deben responder 403 |
 | Verificado | Activar o desactivar usuarios | `routers/admin.py`: actualización de `is_active` | Admin: `PATCH /api/v1/admin/users/{id}` |
@@ -105,15 +106,20 @@ Este documento relaciona los requisitos solicitados con el código actual. Los e
 19. El APK se compilaba sin `flet-onesignal` ni `POST_NOTIFICATIONS`; el import fallaba silenciosamente y ningún teléfono quedaba vinculado.
 20. El registro creaba la cuenta y encadenaba un login sin confirmación persistente; un fallo posterior hacía parecer que el registro no funcionó.
 21. El repositorio contenía una segunda copia completa en `app/app`, que podía empaquetar código móvil obsoleto.
+22. El token solo vivía en memoria y la sesión se perdía al cerrar el APK.
+23. Los botones de WhatsApp y correo invocaban una corrutina de Flet sin esperarla.
+24. El botón de cierre de sesión quedaba fuera del ancho disponible en teléfonos pequeños.
+25. Región era texto libre y permitía valores no normalizados.
+26. El error `provider_error` ocultaba la respuesta útil entregada por OneSignal.
 
 ## Correcciones específicas del APK
 
 - `pyproject.toml`: dependencias móviles fijadas, OneSignal incluido y permiso Android agregado.
-- `frontend/controllers/app_controller.py`: registro con validación, confirmación visible, auto-login verificable y vinculación push al iniciar sesión.
+- `frontend/controllers/app_controller.py`: registro con validación, sesión persistente, selector de 16 regiones, enlaces externos funcionales y vinculación push al iniciar o restaurar sesión.
 - `frontend/views/auth.py`: banner persistente para éxito y errores de registro.
 - `frontend/views/admin.py` y controlador: teclado e input filter numérico en teléfono, número, precio, stock, cantidades y puntos.
-- `frontend/views/profile.py`: estado visible de OneSignal y botón **Probar aviso**.
-- `backend/routers/notifications.py`: endpoint autenticado de diagnóstico push.
+- `frontend/views/profile.py`: estado visible de OneSignal, botón **Probar aviso** y cierre de sesión visible a ancho completo.
+- `backend/routers/notifications.py` y `services/push_notifications.py`: endpoint autenticado y detalle seguro de errores OneSignal.
 - Se eliminaron las copias anidadas y artefactos de Windows; `main.py` es la única entrada de la app móvil.
 
 ## Evidencia automatizada
@@ -127,7 +133,7 @@ python -m unittest discover -s tests -v
 Pruebas incluidas:
 
 - `test_pricing.py`: totales, envío gratis, puntos y preferencias.
-- `test_security.py`: usuario inactivo, administrador real y token bearer.
+- `test_security.py`: usuario inactivo, administrador real, token bearer y renovación de sesión.
 - `test_cart_and_stock.py`: carrito vacío, duplicados, falta de stock, update condicional y rollback.
 - `test_checkout.py`: pago rechazado, monto alterado, idempotencia, pedido Pagado y concurrencia.
 - `test_shipping.py`: teléfono y número de dirección exclusivamente numéricos.
@@ -136,11 +142,11 @@ Pruebas incluidas:
 Ejecución realizada en esta entrega:
 
 ```text
-Suite completa: 26 pruebas ejecutadas, 26 correctas.
+Suite completa: 28 pruebas ejecutadas, 28 correctas.
 compileall: todos los archivos Python compilaron sin errores de sintaxis.
 ```
 
-La suite fue ejecutada con el entorno aislado de Python 3.11 preparado para pruebas.
+La suite fue ejecutada con un entorno temporal aislado de Python 3.12 porque los ejecutables de `.venv` y `.test-venv` apuntan a una instalación eliminada.
 
 ## Pendientes reales
 

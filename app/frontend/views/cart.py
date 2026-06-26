@@ -138,6 +138,10 @@ def build_shipping_address_card(controller) -> ft.Control:
 
 def build_cart_view(controller: "AppController") -> ft.Control:
     items_controls = [build_cart_item(controller, item) for item in controller.state.cart]
+    has_unavailable_items = any(
+        int(item.product.stock) <= 0
+        for item in controller.state.cart
+    )
 
     cart_quote = getattr(controller, "cart_quote", {}) or {}
 
@@ -192,13 +196,24 @@ def build_cart_view(controller: "AppController") -> ft.Control:
                     controls=[
                         controller.use_points_switch,
                         controller.cart_quote_box,
+                        *(
+                            [
+                                ft.Text(
+                                    "Hay productos sin stock en el carrito. Elimínalos antes de pagar.",
+                                    color=IschuuColors.DANGER,
+                                    size=12,
+                                )
+                            ]
+                            if has_unavailable_items
+                            else []
+                        ),
                         ft.FilledButton(
                             content="Pagar con Webpay",
                             icon=ft.Icons.PAYMENTS,
                             on_click=lambda e: controller.run_async(
                                 controller.handle_checkout()
                             ),
-                            disabled=not controller.state.cart,
+                            disabled=not controller.state.cart or has_unavailable_items,
                             style=primary_button_style(),
                         ),
                     ],
@@ -211,6 +226,7 @@ def build_cart_view(controller: "AppController") -> ft.Control:
 
 def build_cart_item(controller: "AppController", item: CartItem) -> ft.Control:
     """Tarjeta vertical para móvil con controles táctiles visibles."""
+    has_stock = int(item.product.stock) > 0
 
     def increase(_: ft.ControlEvent) -> None:
         controller.handle_change_quantity(item.product.id, 1)
@@ -249,6 +265,15 @@ def build_cart_item(controller: "AppController", item: CartItem) -> ft.Control:
                                     currency(item.product.price),
                                     color=IschuuColors.TEXT_MUTED,
                                 ),
+                                (
+                                    status_pill("SIN STOCK", "danger")
+                                    if not has_stock
+                                    else ft.Text(
+                                        f"Stock disponible: {item.product.stock}",
+                                        color=IschuuColors.TEXT_MUTED,
+                                        size=12,
+                                    )
+                                ),
                             ],
                         ),
                         ft.Text(
@@ -271,6 +296,7 @@ def build_cart_item(controller: "AppController", item: CartItem) -> ft.Control:
                                     icon_color=IschuuColors.SKY,
                                     tooltip="Disminuir cantidad",
                                     on_click=decrease,
+                                    disabled=not has_stock,
                                 ),
                                 ft.Container(
                                     width=34,
@@ -287,6 +313,7 @@ def build_cart_item(controller: "AppController", item: CartItem) -> ft.Control:
                                     icon_color=IschuuColors.SUCCESS,
                                     tooltip="Aumentar cantidad",
                                     on_click=increase,
+                                    disabled=not has_stock,
                                 ),
                             ],
                         ),
@@ -302,4 +329,3 @@ def build_cart_item(controller: "AppController", item: CartItem) -> ft.Control:
         ),
         padding=14,
     )
-

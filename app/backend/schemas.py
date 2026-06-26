@@ -43,6 +43,10 @@ class NotificationPreferenceUpdate(BaseModel):
     enabled: bool
 
 
+class RefreshTokenPayload(BaseModel):
+    refresh_token: str = Field(min_length=20)
+
+
 class CartItemPayload(BaseModel):
     product_id: str
     quantity: int = Field(ge=1, le=100)

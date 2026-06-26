@@ -30,7 +30,9 @@ class User:
     name: str
     email: str
     points: int = 0
+    preferences: dict = field(default_factory=dict)
     favorite_categories: list[str] = field(default_factory=list)
+    preference_stats: dict = field(default_factory=dict)
     notifications_enabled: bool = True
     is_admin: bool = False
     is_active: bool = True

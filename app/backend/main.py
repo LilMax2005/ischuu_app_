@@ -62,6 +62,7 @@ async def startup() -> None:
                     "points": 0,
                     "preferences": {},
                     "favorite_categories": [],
+                    "preference_stats": {},
                     "notifications_enabled": True,
                     "shipping_address": {},
                     "is_admin": True,

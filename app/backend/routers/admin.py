@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import math
+import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from app.backend.core.config import settings
@@ -31,6 +33,157 @@ def object_id(value: str) -> ObjectId:
         return ObjectId(value)
     except Exception as exc:
         raise HTTPException(status_code=400, detail="ID inválido") from exc
+
+
+def regex_filter(value: str) -> dict:
+    return {"$regex": re.escape(value.strip()), "$options": "i"}
+
+
+def parse_date(value: str, label: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"{label} debe tener formato YYYY-MM-DD") from exc
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def order_date_bounds(
+    *,
+    date: str = "",
+    start_date: str = "",
+    end_date: str = "",
+    period: str = "",
+    year: int | None = None,
+) -> tuple[str, str] | None:
+    now = datetime.now(timezone.utc)
+    period = period.strip().lower()
+
+    if date.strip():
+        start = parse_date(date.strip(), "date")
+        end = start + timedelta(days=1)
+    elif start_date.strip() or end_date.strip():
+        start = (
+            parse_date(start_date.strip(), "start_date")
+            if start_date.strip()
+            else datetime.min.replace(tzinfo=timezone.utc)
+        )
+        end = (
+            parse_date(end_date.strip(), "end_date") + timedelta(days=1)
+            if end_date.strip()
+            else datetime.max.replace(tzinfo=timezone.utc)
+        )
+    elif period == "today":
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+    elif period == "week":
+        start = (now - timedelta(days=now.weekday())).replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        end = start + timedelta(days=7)
+    elif period == "month":
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = (
+            start.replace(year=start.year + 1, month=1)
+            if start.month == 12
+            else start.replace(month=start.month + 1)
+        )
+    elif period == "year" or year:
+        selected_year = int(year or now.year)
+        start = datetime(selected_year, 1, 1, tzinfo=timezone.utc)
+        end = datetime(selected_year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        return None
+
+    if end <= start:
+        raise HTTPException(status_code=400, detail="La fecha final debe ser posterior a la inicial")
+
+    return start.isoformat(), end.isoformat()
+
+
+def build_order_filters(
+    *,
+    search: str = "",
+    status: str = "",
+    payment_method: str = "",
+    payment_status: str = "",
+    product: str = "",
+    category: str = "",
+    date: str = "",
+    start_date: str = "",
+    end_date: str = "",
+    period: str = "",
+    year: int | None = None,
+) -> dict:
+    conditions: list[dict] = []
+
+    search = search.strip()
+    if search:
+        search_conditions = [
+            {"buy_order": regex_filter(search)},
+            {"user_name": regex_filter(search)},
+            {"user_email": regex_filter(search)},
+            {"status": regex_filter(search)},
+            {"payment_status": regex_filter(search)},
+            {"payment_method": regex_filter(search)},
+            {"items.name": regex_filter(search)},
+            {"items.category": regex_filter(search)},
+        ]
+        if ObjectId.is_valid(search):
+            search_conditions.append({"_id": ObjectId(search)})
+        conditions.append({"$or": search_conditions})
+
+    status = status.strip()
+    if status and status != "Todos":
+        conditions.append({"status": status})
+
+    payment_method = payment_method.strip()
+    if payment_method and payment_method != "Todos":
+        if payment_method.lower() == "webpay":
+            conditions.append(
+                {
+                    "$or": [
+                        {"payment_method": regex_filter("Webpay")},
+                        {"webpay_token": {"$exists": True}},
+                        {"buy_order": {"$regex": "^ISCHUU-", "$options": "i"}},
+                    ]
+                }
+            )
+        else:
+            conditions.append({"payment_method": regex_filter(payment_method)})
+
+    payment_status = payment_status.strip()
+    if payment_status and payment_status != "Todos":
+        conditions.append({"payment_status": regex_filter(payment_status)})
+
+    product = product.strip()
+    if product:
+        conditions.append({"items.name": regex_filter(product)})
+
+    category = category.strip()
+    if category:
+        conditions.append({"items.category": regex_filter(category)})
+
+    bounds = order_date_bounds(
+        date=date,
+        start_date=start_date,
+        end_date=end_date,
+        period=period,
+        year=year,
+    )
+    if bounds is not None:
+        start, end = bounds
+        conditions.append({"created_at": {"$gte": start, "$lt": end}})
+
+    if not conditions:
+        return {}
+
+    return conditions[0] if len(conditions) == 1 else {"$and": conditions}
 
 
 @router.get("/summary")
@@ -182,8 +335,41 @@ async def upload_product_image(
 
 
 @router.get("/orders")
-async def list_orders(_: dict = Depends(get_current_admin)):
-    orders = await db.orders.find().sort("created_at", -1).to_list(length=1000)
+async def list_orders(
+    _: dict = Depends(get_current_admin),
+    search: str = "",
+    status: str = "",
+    payment_method: str = "",
+    payment_status: str = "",
+    product: str = "",
+    category: str = "",
+    date: str = "",
+    start_date: str = "",
+    end_date: str = "",
+    period: str = "",
+    year: int | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+):
+    filters = build_order_filters(
+        search=search,
+        status=status,
+        payment_method=payment_method,
+        payment_status=payment_status,
+        product=product,
+        category=category,
+        date=date,
+        start_date=start_date,
+        end_date=end_date,
+        period=period,
+        year=year,
+    )
+    total = await db.orders.count_documents(filters)
+    total_pages = max(1, math.ceil(total / page_size)) if total else 1
+    current_page = min(page, total_pages)
+    orders = await db.orders.find(filters).sort("created_at", -1).skip(
+        (current_page - 1) * page_size
+    ).to_list(length=page_size)
     results = []
     for order in orders:
         if order.get("user_id") and not order.get("user_email"):
@@ -194,7 +380,13 @@ async def list_orders(_: dict = Depends(get_current_admin)):
             if user:
                 order = {**order, "user_email": user.get("email", ""), "user_name": user.get("name", "")}
         results.append(serialize_order(order))
-    return results
+    return {
+        "items": results,
+        "page": current_page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+    }
 
 
 @router.get("/orders/export")

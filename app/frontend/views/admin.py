@@ -390,7 +390,11 @@ def build_product_admin_card(controller: "AppController", product: dict) -> ft.C
                                 ),
                             ],
                         ),
-                        status_pill(f"Stock: {product.get('stock', 0)}", "info"),
+                        (
+                            status_pill("SIN STOCK", "danger")
+                            if int(product.get("stock", 0)) <= 0
+                            else status_pill(f"Stock: {product.get('stock', 0)}", "info")
+                        ),
                     ],
                 ),
                 ft.Row(
@@ -432,11 +436,125 @@ def build_product_admin_card(controller: "AppController", product: dict) -> ft.C
 
 def build_admin_orders(controller: "AppController") -> ft.Control:
     orders = getattr(controller, "admin_orders", []) or []
+    order_controls = [build_order_admin_card(controller, order) for order in orders]
 
-    if not orders:
-        return card(muted_text("Aún no hay pedidos registrados."), padding=20)
+    if not order_controls:
+        order_controls = [card(muted_text("Aún no hay pedidos registrados con esos filtros."), padding=20)]
 
-    return ft.Column(spacing=12, controls=[build_order_admin_card(controller, order) for order in orders])
+    return ft.Column(
+        spacing=12,
+        controls=[
+            build_order_filters_card(controller),
+            build_admin_order_pagination(controller),
+            *order_controls,
+        ],
+    )
+
+
+def build_order_filters_card(controller: "AppController") -> ft.Control:
+    return card(
+        ft.Column(
+            spacing=12,
+            controls=[
+                section_title("Buscar y filtrar pedidos", 18),
+                ft.Row(
+                    wrap=True,
+                    spacing=10,
+                    run_spacing=10,
+                    controls=[
+                        ft.Container(width=360, content=controller.admin_order_search),
+                        controller.admin_order_status_filter,
+                        controller.admin_order_payment_filter,
+                    ],
+                ),
+                ft.Row(
+                    wrap=True,
+                    spacing=10,
+                    run_spacing=10,
+                    controls=[
+                        ft.Container(width=280, content=controller.admin_order_product_filter),
+                        ft.Container(width=230, content=controller.admin_order_category_filter),
+                    ],
+                ),
+                ft.Row(
+                    wrap=True,
+                    spacing=10,
+                    run_spacing=10,
+                    controls=[
+                        controller.admin_order_date_filter,
+                        controller.admin_order_start_date_filter,
+                        controller.admin_order_end_date_filter,
+                        controller.admin_order_period_filter,
+                        controller.admin_order_year_filter,
+                    ],
+                ),
+                ft.Row(
+                    wrap=True,
+                    spacing=10,
+                    run_spacing=10,
+                    controls=[
+                        ft.FilledButton(
+                            content="Buscar pedidos",
+                            icon=ft.Icons.SEARCH,
+                            on_click=lambda _e: controller.apply_admin_order_filters(),
+                            style=primary_button_style(),
+                        ),
+                        ft.OutlinedButton(
+                            content="Limpiar filtros",
+                            icon=ft.Icons.FILTER_ALT_OFF_OUTLINED,
+                            on_click=lambda _e: controller.clear_admin_order_filters(),
+                            style=outline_button_style(),
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        padding=16,
+    )
+
+
+def build_admin_order_pagination(controller: "AppController") -> ft.Control:
+    meta = getattr(controller, "admin_orders_meta", {}) or {}
+    current_page = int(meta.get("page", 1))
+    total_pages = max(1, int(meta.get("total_pages", 1)))
+    total = int(meta.get("total", 0))
+
+    return ft.Container(
+        padding=12,
+        border_radius=14,
+        bgcolor=IschuuColors.SURFACE_ALT,
+        border=ft.Border(
+            left=ft.BorderSide(1, IschuuColors.BORDER),
+            top=ft.BorderSide(1, IschuuColors.BORDER),
+            right=ft.BorderSide(1, IschuuColors.BORDER),
+            bottom=ft.BorderSide(1, IschuuColors.BORDER),
+        ),
+        content=ft.Row(
+            wrap=True,
+            spacing=8,
+            run_spacing=8,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                ft.IconButton(
+                    icon=ft.Icons.CHEVRON_LEFT,
+                    tooltip="Página anterior",
+                    disabled=current_page <= 1,
+                    on_click=lambda _e: controller.set_admin_orders_page(current_page - 1),
+                ),
+                ft.Text(
+                    f"Página {current_page} de {total_pages} · {total} pedidos",
+                    color=IschuuColors.TEXT_MUTED,
+                    size=12,
+                ),
+                ft.IconButton(
+                    icon=ft.Icons.CHEVRON_RIGHT,
+                    tooltip="Página siguiente",
+                    disabled=current_page >= total_pages,
+                    on_click=lambda _e: controller.set_admin_orders_page(current_page + 1),
+                ),
+            ],
+        ),
+    )
 
 
 def build_order_admin_card(controller: "AppController", order: dict) -> ft.Control:
@@ -459,6 +577,8 @@ def build_order_admin_card(controller: "AppController", order: dict) -> ft.Contr
 
     items = order.get("items", []) or []
     items_text = ", ".join([f"{item.get('name', 'Producto')} x{item.get('quantity', 1)}" for item in items])
+    created_at = str(order.get("created_at", ""))[:10] or "Sin fecha"
+    payment_method = order.get("payment_method", "Webpay")
     history = order.get("status_history", []) or []
     history_controls = []
 
@@ -508,6 +628,11 @@ def build_order_admin_card(controller: "AppController", order: dict) -> ft.Contr
                                 ),
                                 ft.Text(
                                     order.get("user_email", order.get("user_id", "")),
+                                    color=IschuuColors.TEXT_MUTED,
+                                    size=12,
+                                ),
+                                ft.Text(
+                                    f"{created_at} · {payment_method}",
                                     color=IschuuColors.TEXT_MUTED,
                                     size=12,
                                 ),

@@ -7,14 +7,38 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pymongo.errors import DuplicateKeyError
 
 from app.backend.core.config import settings
-from app.backend.core.security import authenticate_user, create_access_token, get_password_hash, get_user_by_email
+from app.backend.core.security import (
+    authenticate_user,
+    create_access_token,
+    create_refresh_token,
+    decode_refresh_token,
+    get_password_hash,
+    get_user_by_email,
+)
 from app.backend.db import db
 from app.backend.dependencies import get_current_active_user
 from app.backend.models import serialize_user
-from app.backend.schemas import NotificationPreferenceUpdate, ShippingAddressPayload, UserCreate
+from app.backend.schemas import (
+    NotificationPreferenceUpdate,
+    RefreshTokenPayload,
+    ShippingAddressPayload,
+    UserCreate,
+)
 from app.backend.services.shipping import normalize_shipping_address
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
+
+
+def auth_response(user: dict) -> dict:
+    return {
+        "access_token": create_access_token(
+            subject=user["email"],
+            expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+        ),
+        "refresh_token": create_refresh_token(subject=user["email"]),
+        "token_type": "bearer",
+        "user": serialize_user(user),
+    }
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -29,6 +53,7 @@ async def register(payload: UserCreate):
         "points": 0,
         "preferences": {},
         "favorite_categories": [],
+        "preference_stats": {},
         "notifications_enabled": True,
         "shipping_address": {},
         "is_admin": False,
@@ -58,11 +83,18 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             detail="Usuario inactivo. Contacta a un administrador.",
         )
 
-    token = create_access_token(
-        subject=user["email"],
-        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
-    )
-    return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
+    return auth_response(user)
+
+
+@router.post("/refresh")
+async def refresh_session(payload: RefreshTokenPayload):
+    user = await decode_refresh_token(payload.refresh_token)
+    if not bool(user.get("is_active", True)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario inactivo. Contacta a un administrador.",
+        )
+    return auth_response(user)
 
 
 @router.get("/me")

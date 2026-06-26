@@ -8,6 +8,7 @@ from app.frontend.views.components import build_summary_row
 from app.frontend.views.theme import (
     IschuuColors,
     card,
+    danger_outline_button_style,
     muted_text,
     outline_button_style,
     primary_button_style,
@@ -38,6 +39,8 @@ def build_profile_view(controller: "AppController") -> ft.Control:
     user_email = getattr(user, "email", "")
     user_points = int(getattr(user, "points", 0))
     favorite_categories = getattr(user, "favorite_categories", []) or []
+    preferences = getattr(user, "preferences", {}) or {}
+    preference_stats = getattr(user, "preference_stats", {}) or {}
     notifications_enabled = bool(getattr(user, "notifications_enabled", True))
     is_admin = bool(getattr(user, "is_admin", False))
 
@@ -54,11 +57,23 @@ def build_profile_view(controller: "AppController") -> ft.Control:
 
     level = "Ischuu Gold" if user_points >= 100 else "Ischuu Starter"
 
-    preferences_text = (
-        ", ".join(favorite_categories)
-        if favorite_categories
-        else "Sin preferencias"
-    )
+    if not favorite_categories and preferences:
+        favorite_categories = [
+            category
+            for category, _count in sorted(
+                preferences.items(),
+                key=lambda item: int(item[1]),
+                reverse=True,
+            )[:3]
+        ]
+
+    preference_labels = []
+    for category in favorite_categories:
+        stats = preference_stats.get(category, {}) if isinstance(preference_stats, dict) else {}
+        count = int(stats.get("products_bought", preferences.get(category, 0)) or 0)
+        preference_labels.append(f"{category} ({count})" if count else category)
+
+    preferences_text = ", ".join(preference_labels) if preference_labels else "Sin preferencias"
 
     return ft.Column(
         spacing=14,
@@ -170,12 +185,17 @@ def build_profile_view(controller: "AppController") -> ft.Control:
                                     on_click=test_notification,
                                     style=outline_button_style(),
                                 ),
+                            ],
+                        ),
+                        ft.Row(
+                            controls=[
                                 ft.OutlinedButton(
                                     content="Cerrar sesión",
                                     icon=ft.Icons.LOGOUT,
                                     on_click=logout,
-                                    style=outline_button_style(),
-                                ),
+                                    expand=True,
+                                    style=danger_outline_button_style(),
+                                )
                             ],
                         ),
                     ],

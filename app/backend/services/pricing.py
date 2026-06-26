@@ -17,6 +17,10 @@ def format_currency(value: int) -> str:
 
 
 def top_preference_categories(user: dict, limit: int = 3) -> list[str]:
+    favorite_categories = user.get("favorite_categories", []) or []
+    if isinstance(favorite_categories, list) and favorite_categories:
+        return [str(category) for category in favorite_categories[:limit]]
+
     preferences = user.get("preferences", {}) or {}
 
     if not isinstance(preferences, dict):
