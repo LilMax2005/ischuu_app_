@@ -6,9 +6,12 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from bson import ObjectId
+from fastapi import HTTPException
 
 os.environ.setdefault("MONGODB_URL", "mongodb://localhost:27017")
 
+from app.backend.routers.payments import create_cart_payment  # noqa: E402
+from app.backend.schemas import CartPaymentRequest  # noqa: E402
 from app.backend.services.checkout import (  # noqa: E402
     CheckoutConflictError,
     PaymentValidationError,
@@ -52,12 +55,13 @@ def payment_fixture(product_id: ObjectId, user_id: ObjectId) -> dict:
             "recipient": "Cliente",
             "phone": "56912345678",
             "region": "Metropolitana",
-            "comuna": "Santiago",
+            "city": "Santiago",
+            "comuna": "Providencia",
             "street": "Alameda",
             "number": "123",
             "details": "",
         },
-        "shipping_address_text": "Alameda 123, Santiago, Metropolitana",
+        "shipping_address_text": "Alameda 123, Providencia, Santiago, Metropolitana",
         "order_created": False,
     }
 
@@ -75,6 +79,40 @@ class CheckoutTests(unittest.IsolatedAsyncioTestCase):
                 payment,
                 {"status": "AUTHORIZED", "amount": 9_000, "buy_order": "A"},
             )
+
+    async def test_backend_rejects_webpay_without_saved_shipping_address(self):
+        product_id = ObjectId()
+        user_id = ObjectId()
+        payload = CartPaymentRequest(
+            items=[{"product_id": str(product_id), "quantity": 1}],
+            use_points=False,
+        )
+        user = {"_id": user_id, "shipping_address": {}}
+
+        with (
+            patch(
+                "app.backend.routers.payments.enrich_cart_items",
+                new=AsyncMock(
+                    return_value=[
+                        {
+                            "product_id": str(product_id),
+                            "name": "Blind Box",
+                            "category": "Anime",
+                            "quantity": 1,
+                            "price": 10_000,
+                            "subtotal": 10_000,
+                        }
+                    ]
+                ),
+            ),
+            patch("app.backend.routers.payments.create_webpay_transaction") as webpay_mock,
+        ):
+            with self.assertRaises(HTTPException) as context:
+                await create_cart_payment(payload, user)
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("dirección de entrega válida", context.exception.detail.lower())
+        webpay_mock.assert_not_called()
 
     async def test_existing_order_makes_callback_idempotent(self):
         existing = {"_id": ObjectId(), "webpay_token": "token-webpay"}

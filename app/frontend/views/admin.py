@@ -30,6 +30,26 @@ ORDER_STATUSES = [
 ]
 
 
+def build_admin_accordion_header(
+    title: str,
+    is_open: bool,
+    on_toggle,
+) -> ft.Control:
+    return ft.Row(
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        controls=[
+            section_title(title, 18),
+            ft.IconButton(
+                icon=ft.Icons.EXPAND_LESS if is_open else ft.Icons.EXPAND_MORE,
+                icon_color=IschuuColors.PRIMARY,
+                tooltip="Ocultar sección" if is_open else "Mostrar sección",
+                on_click=lambda _e: on_toggle(),
+            ),
+        ],
+    )
+
+
 def build_admin_view(controller: "AppController") -> ft.Control:
     admin_tab = getattr(controller, "admin_tab", "dashboard")
 
@@ -181,6 +201,15 @@ def build_admin_products(controller: "AppController") -> ft.Control:
 
 
 def build_product_form(controller: "AppController") -> ft.Control:
+    header = build_admin_accordion_header(
+        "Crear producto",
+        bool(getattr(controller, "admin_create_product_open", False)),
+        controller.toggle_admin_create_product,
+    )
+
+    if not getattr(controller, "admin_create_product_open", False):
+        return card(header, padding=16)
+
     name = ft.TextField(
         label="Nombre",
         **input_style(),
@@ -282,7 +311,7 @@ def build_product_form(controller: "AppController") -> ft.Control:
         ft.Column(
             spacing=12,
             controls=[
-                section_title("Crear producto", 18),
+                header,
                 muted_text(
                     "Completa los datos del producto. Puedes usar una URL de imagen o una ruta local escrita manualmente."
                 ),
@@ -452,11 +481,20 @@ def build_admin_orders(controller: "AppController") -> ft.Control:
 
 
 def build_order_filters_card(controller: "AppController") -> ft.Control:
+    header = build_admin_accordion_header(
+        "Buscar y filtrar pedidos",
+        bool(getattr(controller, "admin_order_filters_open", False)),
+        controller.toggle_admin_order_filters,
+    )
+
+    if not getattr(controller, "admin_order_filters_open", False):
+        return card(header, padding=16)
+
     return card(
         ft.Column(
             spacing=12,
             controls=[
-                section_title("Buscar y filtrar pedidos", 18),
+                header,
                 ft.Row(
                     wrap=True,
                     spacing=10,

@@ -12,7 +12,8 @@ def address(**overrides) -> dict:
         "recipient": "Cliente",
         "phone": "56912345678",
         "region": "Metropolitana",
-        "comuna": "Santiago",
+        "city": "Santiago",
+        "comuna": "Providencia",
         "street": "Alameda",
         "number": "123",
         "details": "",
@@ -32,10 +33,19 @@ class ShippingValidationTests(unittest.TestCase):
             normalize_shipping_address(address(number="123A"))
         self.assertIn("número", context.exception.detail.lower())
 
+    def test_city_is_required(self):
+        with self.assertRaises(HTTPException) as context:
+            normalize_shipping_address(address(city=""))
+        self.assertIn("ciudad", context.exception.detail.lower())
+
     def test_valid_numeric_address_is_normalized(self):
         result = normalize_shipping_address(address())
         self.assertEqual(result["phone"], "56912345678")
         self.assertEqual(result["number"], "123")
+        self.assertEqual(
+            result["full_address"],
+            "Alameda 123, Providencia, Santiago, Metropolitana",
+        )
 
 
 if __name__ == "__main__":

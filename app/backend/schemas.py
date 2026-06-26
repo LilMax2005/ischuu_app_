@@ -33,6 +33,7 @@ class ShippingAddressPayload(BaseModel):
     recipient: str
     phone: str
     region: str
+    city: str = ""
     comuna: str
     street: str
     number: str
@@ -59,7 +60,7 @@ class CartQuoteRequest(BaseModel):
 
 
 class CartPaymentRequest(CartQuoteRequest):
-    shipping_address: ShippingAddressPayload
+    shipping_address: ShippingAddressPayload | None = None
 
 
 class AdminUserUpdate(BaseModel):

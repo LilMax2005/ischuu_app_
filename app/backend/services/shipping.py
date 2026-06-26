@@ -13,6 +13,7 @@ def normalize_shipping_address(data: dict) -> dict:
     recipient = str(data.get("recipient", "")).strip()
     phone = str(data.get("phone", "")).strip()
     region = str(data.get("region", "")).strip()
+    city = str(data.get("city", "")).strip()
     comuna = str(data.get("comuna", "")).strip()
     street = str(data.get("street", "")).strip()
     number = str(data.get("number", "")).strip()
@@ -22,6 +23,7 @@ def normalize_shipping_address(data: dict) -> dict:
         "Nombre destinatario": recipient,
         "Teléfono": phone,
         "Región": region,
+        "Ciudad": city,
         "Comuna": comuna,
         "Calle": street,
         "Número": number,
@@ -51,7 +53,7 @@ def normalize_shipping_address(data: dict) -> dict:
             detail="El número de la dirección debe contener solamente números",
         )
 
-    full_address = f"{street} {number}, {comuna}, {region}"
+    full_address = f"{street} {number}, {comuna}, {city}, {region}"
 
     if details:
         full_address = f"{full_address}. Referencia: {details}"
@@ -60,6 +62,7 @@ def normalize_shipping_address(data: dict) -> dict:
         "recipient": recipient,
         "phone": phone,
         "region": region,
+        "city": city,
         "comuna": comuna,
         "street": street,
         "number": number,

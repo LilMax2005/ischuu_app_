@@ -83,6 +83,46 @@ def build_shipping_address_card(controller) -> ft.Control:
             )
         )
 
+    feedback_controls = []
+    if getattr(controller, "shipping_address_feedback", ""):
+        feedback_controls.append(
+            ft.Container(
+                padding=12,
+                border_radius=12,
+                bgcolor=IschuuColors.SURFACE_ALT,
+                content=ft.Row(
+                    spacing=8,
+                    vertical_alignment=ft.CrossAxisAlignment.START,
+                    controls=[
+                        ft.Icon(
+                            (
+                                ft.Icons.ERROR_OUTLINE
+                                if controller.shipping_address_feedback_error
+                                else ft.Icons.CHECK_CIRCLE_OUTLINE
+                            ),
+                            color=(
+                                IschuuColors.DANGER
+                                if controller.shipping_address_feedback_error
+                                else IschuuColors.SUCCESS
+                            ),
+                            size=18,
+                        ),
+                        ft.Text(
+                            controller.shipping_address_feedback,
+                            color=(
+                                IschuuColors.DANGER
+                                if controller.shipping_address_feedback_error
+                                else IschuuColors.SUCCESS
+                            ),
+                            size=12,
+                            weight=ft.FontWeight.W_600,
+                            expand=True,
+                        ),
+                    ],
+                ),
+            )
+        )
+
     return card(
         ft.Column(
             spacing=12,
@@ -91,6 +131,7 @@ def build_shipping_address_card(controller) -> ft.Control:
                 muted_text(
                     "Ingresa los datos donde quieres recibir tu pedido. Esta sección se minimizará después de guardar."
                 ),
+                *feedback_controls,
                 controller.shipping_recipient,
                 controller.shipping_phone,
                 ft.Row(
@@ -101,6 +142,10 @@ def build_shipping_address_card(controller) -> ft.Control:
                         ft.Container(
                             width=300,
                             content=controller.shipping_region,
+                        ),
+                        ft.Container(
+                            width=300,
+                            content=controller.shipping_city,
                         ),
                         ft.Container(
                             width=300,

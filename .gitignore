@@ -1,17 +1,44 @@
+# Entorno y secretos
 .env
 .env.*
 !.env.example
+
+# Entornos Python / uv
 .venv/
 .test-venv/
 .uv-cache/
 .uv-python/
+venv/
+env/
+
+# Cache Python y tooling
 __pycache__/
+**/__pycache__/
 *.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Builds y artefactos locales
+build/
 dist/
+*.spec
+*.apk
+*.aab
+*.ipa
+flet-build.log
+
+# Datos/exportaciones locales de la app
 pedidos_ischuu.xlsx
 ischuu_cart_local.json
 ischuu_pending_payment.json
 ischuu_shipping_address.json
-build/
-*.apk
-flet-build.log
+
+# IDE / sistema operativo
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

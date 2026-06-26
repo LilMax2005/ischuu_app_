@@ -73,6 +73,8 @@ class AppController:
         # Dirección de despacho
         self.shipping_address_saved = False
         self.shipping_address_editing = True
+        self.shipping_address_feedback = ""
+        self.shipping_address_feedback_error = False
 
         self.current_section = 0
         self.auth_mode = "login"
@@ -112,6 +114,12 @@ class AppController:
             label_style=ft.TextStyle(color=IschuuColors.TEXT_MUTED),
         )
 
+        self.shipping_city = ft.TextField(
+            label="Ciudad",
+            prefix_icon=ft.Icons.LOCATION_CITY_OUTLINED,
+            **input_style(),
+        )
+
         self.shipping_comuna = ft.TextField(
             label="Comuna",
             prefix_icon=ft.Icons.LOCATION_CITY_OUTLINED,
@@ -145,6 +153,9 @@ class AppController:
         self.admin_products: list[dict] = []
         self.admin_orders: list[dict] = []
         self.admin_settings: dict[str, Any] = {}
+        self.admin_create_product_open = False
+        self.admin_order_filters_open = False
+        self.checkout_after_address_save = False
 
         self.page.title = "Ischuu"
         self.page.theme_mode = ft.ThemeMode.LIGHT
@@ -317,6 +328,7 @@ class AppController:
         text_fields = [
             self.shipping_recipient,
             self.shipping_phone,
+            self.shipping_city,
             self.shipping_comuna,
             self.shipping_street,
             self.shipping_number,
@@ -602,6 +614,7 @@ class AppController:
         self.shipping_recipient.value = data.get("recipient", "")
         self.shipping_phone.value = data.get("phone", "")
         self.shipping_region.value = data.get("region", "Región Metropolitana")
+        self.shipping_city.value = data.get("city", "")
         self.shipping_comuna.value = data.get("comuna", "")
         self.shipping_street.value = data.get("street", "")
         self.shipping_number.value = data.get("number", "")
@@ -687,6 +700,7 @@ class AppController:
             "recipient": self.shipping_recipient.value or "",
             "phone": self.shipping_phone.value or "",
             "region": self.shipping_region.value or "",
+            "city": self.shipping_city.value or "",
             "comuna": self.shipping_comuna.value or "",
             "street": self.shipping_street.value or "",
             "number": self.shipping_number.value or "",
@@ -700,6 +714,7 @@ class AppController:
             "recipient",
             "phone",
             "region",
+            "city",
             "comuna",
             "street",
             "number",
@@ -707,32 +722,110 @@ class AppController:
 
         return all(str(data.get(field, "")).strip() for field in required)
 
-    def shipping_address_validation_message(self) -> str:
-        data = self.shipping_address_payload()
+    def shipping_address_field_controls(self) -> dict[str, ft.Control]:
+        return {
+            "recipient": self.shipping_recipient,
+            "phone": self.shipping_phone,
+            "region": self.shipping_region,
+            "city": self.shipping_city,
+            "comuna": self.shipping_comuna,
+            "street": self.shipping_street,
+            "number": self.shipping_number,
+        }
+
+    def clear_shipping_address_field_errors(self) -> None:
+        for control in self.shipping_address_field_controls().values():
+            try:
+                control.error_text = None
+            except Exception:
+                pass
+
+    def set_shipping_address_feedback(self, message: str = "", error: bool = False) -> None:
+        self.shipping_address_feedback = message
+        self.shipping_address_feedback_error = error
+
+    def mark_shipping_address_error_fields(self, fields: list[str]) -> None:
+        controls = self.shipping_address_field_controls()
+        for field in fields:
+            control = controls.get(field)
+            if control is None:
+                continue
+            try:
+                control.error_text = "Revisar este campo"
+            except Exception:
+                pass
+
+    def mark_shipping_address_errors_from_message(self, message: str) -> None:
+        self.clear_shipping_address_field_errors()
+        normalized = message.lower()
+        field_terms = {
+            "recipient": ["nombre", "destinatario", "recibe"],
+            "phone": ["teléfono", "telefono", "phone"],
+            "region": ["región", "region"],
+            "city": ["ciudad", "city"],
+            "comuna": ["comuna"],
+            "street": ["calle", "dirección", "direccion", "street"],
+            "number": ["número", "numero", "domicilio", "number"],
+        }
+        fields = [
+            field
+            for field, terms in field_terms.items()
+            if any(term in normalized for term in terms)
+        ]
+        self.mark_shipping_address_error_fields(fields)
+
+    def shipping_address_validation_message(
+        self,
+        data: dict | None = None,
+        mark_fields: bool = False,
+    ) -> str:
+        data = self.shipping_address_payload() if data is None else data
         labels = {
             "recipient": "Nombre de quien recibe",
             "phone": "Teléfono de contacto",
-            "region": "Ciudad o región",
+            "region": "Región",
+            "city": "Ciudad",
             "comuna": "Comuna",
             "street": "Calle o dirección",
             "number": "Número",
         }
         missing = [
-            label
+            field
             for field, label in labels.items()
             if not str(data.get(field, "")).strip()
         ]
+        if mark_fields:
+            self.clear_shipping_address_field_errors()
+            self.mark_shipping_address_error_fields(missing)
+
         if missing:
-            return f"Faltan datos de despacho: {', '.join(missing)}."
+            missing_labels = [labels[field] for field in missing]
+            return (
+                "Para guardar la dirección, debes completar: "
+                f"{', '.join(missing_labels)}."
+            )
 
         phone = str(data.get("phone", "")).strip()
         number = str(data.get("number", "")).strip()
         if not phone.isdigit():
+            if mark_fields:
+                self.mark_shipping_address_error_fields(["phone"])
             return "El teléfono de contacto debe contener solamente números."
         if not number.isdigit():
+            if mark_fields:
+                self.mark_shipping_address_error_fields(["number"])
             return "El número de la dirección debe contener solamente números."
 
+        if mark_fields:
+            self.clear_shipping_address_field_errors()
         return ""
+
+    def saved_shipping_address_validation_message(self) -> str:
+        if not self.state.current_user:
+            return "Debes iniciar sesión para registrar una dirección de entrega."
+
+        data = getattr(self.state.current_user, "shipping_address", {}) or {}
+        return self.shipping_address_validation_message(data)
 
     def shipping_address_text(self) -> str:
         data = self.shipping_address_payload()
@@ -741,6 +834,7 @@ class AppController:
             f"{data.get('street', '').strip()} "
             f"{data.get('number', '').strip()}, "
             f"{data.get('comuna', '').strip()}, "
+            f"{data.get('city', '').strip()}, "
             f"{data.get('region', '').strip()}"
         )
 
@@ -768,7 +862,28 @@ class AppController:
         try:
             detail = exc.response.json().get("detail")
             if isinstance(detail, list):
-                messages = [str(item.get("msg", "Dato inválido")) for item in detail]
+                field_labels = {
+                    "recipient": "Nombre de quien recibe",
+                    "phone": "Teléfono de contacto",
+                    "region": "Región",
+                    "city": "Ciudad",
+                    "comuna": "Comuna",
+                    "street": "Calle o dirección",
+                    "number": "Número",
+                    "details": "Referencia",
+                }
+                messages = []
+                for item in detail:
+                    loc = item.get("loc", [])
+                    field = str(loc[-1]) if loc else ""
+                    label = field_labels.get(field, field)
+                    raw_message = str(item.get("msg", "Dato inválido"))
+                    if raw_message.lower() == "field required" and label:
+                        messages.append(f"Falta completar: {label}")
+                    elif label:
+                        messages.append(f"{label}: {raw_message}")
+                    else:
+                        messages.append(raw_message)
                 return "; ".join(messages)
             if detail:
                 return str(detail)
@@ -845,42 +960,78 @@ class AppController:
             )
             return
 
-        validation_message = self.shipping_address_validation_message()
+        validation_message = self.shipping_address_validation_message(mark_fields=True)
         if validation_message:
-            self.show_message(
-                validation_message,
-                error=True,
-            )
+            self.set_shipping_address_feedback(validation_message, error=True)
+            self.show_message(validation_message, error=True)
+            self.render()
             return
 
         try:
+            submitted_address = self.shipping_address_payload()
             updated_user = await self.api.update_my_shipping_address(
-                self.shipping_address_payload()
+                submitted_address
             )
             self.state.current_user = self.user_from_dict(updated_user)
+            saved_address = getattr(self.state.current_user, "shipping_address", {}) or {}
+            if not str(saved_address.get("city", "")).strip():
+                saved_address = {**submitted_address, **saved_address, "city": submitted_address.get("city", "")}
+                self.state.current_user.shipping_address = saved_address
+
             self.apply_shipping_address_to_fields(
-                getattr(self.state.current_user, "shipping_address", {}) or {}
+                saved_address
             )
 
             self.shipping_address_saved = True
             self.shipping_address_editing = False
+            self.clear_shipping_address_field_errors()
+            self.set_shipping_address_feedback()
+
+            if self.checkout_after_address_save and self.state.cart:
+                self.checkout_after_address_save = False
+                self.show_message("Dirección guardada. Continuando al pago.")
+                self.render()
+                await self.handle_checkout()
+                return
 
             self.show_message("Dirección de despacho guardada correctamente.")
             self.render()
 
+        except httpx.HTTPStatusError as exc:
+            message = self.http_error_message(
+                exc,
+                "No se pudo guardar la dirección. Revisa los campos obligatorios.",
+            )
+            self.shipping_address_saved = False
+            self.shipping_address_editing = True
+            self.mark_shipping_address_errors_from_message(message)
+            self.set_shipping_address_feedback(message, error=True)
+            self.show_message(message, error=True)
+            self.render()
         except Exception as exc:
+            self.shipping_address_saved = False
+            self.shipping_address_editing = True
+            self.set_shipping_address_feedback(
+                f"No se pudo guardar la dirección: {exc}",
+                error=True,
+            )
             self.show_message(
                 f"No se pudo guardar la dirección: {exc}",
                 error=True,
             )
+            self.render()
 
     def handle_edit_shipping_address(self) -> None:
         self.shipping_address_editing = True
+        self.set_shipping_address_feedback()
+        self.clear_shipping_address_field_errors()
         self.render()
 
     def handle_cancel_edit_shipping_address(self) -> None:
         if self.shipping_address_saved:
             self.shipping_address_editing = False
+            self.set_shipping_address_feedback()
+            self.clear_shipping_address_field_errors()
             self.render()
 
     def build_section(self) -> ft.Control:
@@ -1183,6 +1334,14 @@ class AppController:
         if page == int(self.admin_orders_meta.get("page", 1)):
             return
         self.run_async(self.reload_admin_orders(page=page))
+
+    def toggle_admin_create_product(self) -> None:
+        self.admin_create_product_open = not self.admin_create_product_open
+        self.render()
+
+    def toggle_admin_order_filters(self) -> None:
+        self.admin_order_filters_open = not self.admin_order_filters_open
+        self.render()
 
     def save_cart_to_file(self) -> None:
         self.run_async(self._save_cart_to_preferences())
@@ -1684,10 +1843,24 @@ class AppController:
             return
 
         try:
-            validation_message = self.shipping_address_validation_message()
+            stock_warnings = await self.refresh_cart_products_from_backend()
+            if stock_warnings:
+                self.show_message(stock_warnings[0], error=True)
+                await self.refresh_cart_quote()
+                self.render()
+                return
+
+            validation_message = self.saved_shipping_address_validation_message()
             if validation_message:
                 self.shipping_address_editing = True
                 self.shipping_address_saved = False
+                self.checkout_after_address_save = True
+                self.mark_shipping_address_errors_from_message(validation_message)
+                self.set_shipping_address_feedback(
+                    "Antes de continuar con el pago, debes registrar una dirección de entrega. "
+                    + validation_message,
+                    error=True,
+                )
                 self.show_message(
                     "Antes de continuar con el pago, debes registrar una dirección de entrega. "
                     + validation_message,
@@ -1697,14 +1870,7 @@ class AppController:
                 self.render()
                 return
 
-            stock_warnings = await self.refresh_cart_products_from_backend()
-            if stock_warnings:
-                self.show_message(stock_warnings[0], error=True)
-                await self.refresh_cart_quote()
-                self.render()
-                return
-
-            shipping_address = self.shipping_address_payload()
+            shipping_address = getattr(self.state.current_user, "shipping_address", {}) or {}
 
             data = await self.api.create_cart_payment(
                 self.cart_items_payload(),
@@ -1722,10 +1888,19 @@ class AppController:
             self.run_async(self.monitor_pending_payment())
 
         except httpx.HTTPStatusError as exc:
-            self.show_message(
-                self.http_error_message(exc, "No se pudo iniciar Webpay."),
-                error=True,
-            )
+            message = self.http_error_message(exc, "No se pudo iniciar Webpay.")
+            if exc.response.status_code in {400, 422} and "direcci" in message.lower():
+                self.shipping_address_editing = True
+                self.shipping_address_saved = False
+                self.checkout_after_address_save = True
+                self.current_section = 1
+                self.mark_shipping_address_errors_from_message(message)
+                self.set_shipping_address_feedback(message, error=True)
+                self.show_message(message, error=True)
+                self.render()
+                return
+
+            self.show_message(message, error=True)
         except Exception as exc:
             self.show_message(f"No se pudo iniciar Webpay: {exc}", error=True)
 

@@ -60,7 +60,13 @@ async def create_cart_payment(
     user: dict = Depends(get_current_active_user),
 ):
     enriched_items = await enrich_cart_items(db, item_dicts(payload))
-    shipping_address = normalize_shipping_address(payload.shipping_address.model_dump())
+    try:
+        shipping_address = normalize_shipping_address(user.get("shipping_address", {}) or {})
+    except HTTPException as exc:
+        detail = "Debes registrar una dirección de entrega válida antes de realizar el pago."
+        if exc.detail:
+            detail = f"{detail} {exc.detail}"
+        raise HTTPException(status_code=400, detail=detail) from exc
     totals = calculate_cart_totals(
         enriched_items,
         user,
