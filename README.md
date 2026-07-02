@@ -136,14 +136,14 @@ uvicorn app.backend.main:app --reload --host 127.0.0.1 --port 8000
 
 Comprueba que responde en:
 
-- API: <http://127.0.0.1:8000>
-- Salud: <http://127.0.0.1:8000/health>
-- Swagger UI: <http://127.0.0.1:8000/docs>
+- API: <https://ischuu-app.onrender.com>
+- Salud: <https://ischuu-app.onrender.com>
+- Swagger UI: <https://ischuu-app.onrender.com/docs>
 
 Para conectar Flet a esta API local, configura:
 
 ```env
-FRONTEND_API_BASE_URL=http://127.0.0.1:8000
+FRONTEND_API_BASE_URL=https://ischuu-app.onrender.com/docs
 ```
 
 Después abre otra terminal y ejecuta la app en Android:
